@@ -2,16 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Muhit o'zgaruvchilari
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# Talablar faylini yuklash va o'rnatish
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Loyiha fayllarini nusxalash
 COPY . .
 
-# Botni ishga tushirish
+EXPOSE 8080
+
 CMD ["python", "main.py"]
