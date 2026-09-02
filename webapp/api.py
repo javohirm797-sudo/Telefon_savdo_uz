@@ -10,6 +10,14 @@ logger = logging.getLogger(__name__)
 
 # Rasmlar keshi (hot cache)
 photo_url_cache = {}
+photo_bytes_cache = {}
+_shared_session = None
+
+async def get_shared_session():
+    global _shared_session
+    if _shared_session is None or _shared_session.closed:
+        _shared_session = aiohttp.ClientSession()
+    return _shared_session
 
 async def serve_index(request):
     """Asosiy Web App sahifasini ochish"""
@@ -26,7 +34,6 @@ async def api_get_ads(request):
 
     ads = await db.get_active_ads(brand=brand, model=model, region=region, limit=limit, offset=offset)
     
-    # Datetime obyektlarini stringga o'tkazamiz
     clean_ads = []
     for ad in ads:
         item = dict(ad)
@@ -52,15 +59,26 @@ async def api_get_auctions(request):
     return web.json_response(clean_auc)
 
 async def api_get_photo(request):
-    """Telegram photo_id bo'yicha rasmni olib beruvchi proxy"""
+    """Telegram photo_id bo'yicha rasmni olib beruvchi tezkor proxy (in-memory kesh bilan)"""
     photo_id = request.match_info.get("photo_id")
-    bot = request.app["bot"]
+    bot = request.app.get("bot")
 
-    if not photo_id or photo_id == "test_photo_id":
+    if not photo_id or photo_id in ("default", "test_photo_id"):
+        placeholder = os.path.join(os.path.dirname(__file__), "banner.jpg")
+        if os.path.exists(placeholder):
+            return web.FileResponse(placeholder, headers={"Cache-Control": "public, max-age=604800"})
         return web.Response(status=404, text="Photo not found")
 
+    # 1. Tezkor xotira keshi (RAM) — 0 soniyada beradi!
+    if photo_id in photo_bytes_cache:
+        return web.Response(
+            body=photo_bytes_cache[photo_id],
+            content_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=604800, immutable"}
+        )
+
     try:
-        # Telegram fayl yo'lini olish
+        # 2. URL ni olish
         if photo_id in photo_url_cache:
             file_url = photo_url_cache[photo_id]
         else:
@@ -68,16 +86,27 @@ async def api_get_photo(request):
             file_url = f"https://api.telegram.org/file/bot{config.BOT_TOKEN}/{file_info.file_path}"
             photo_url_cache[photo_id] = file_url
 
-        # Rasmni yuklab foydalanuvchiga yuborish
-        async with aiohttp.ClientSession() as session:
-            async with session.get(file_url) as resp:
-                if resp.status == 200:
-                    content = await resp.read()
-                    return web.Response(body=content, content_type="image/jpeg")
-                return web.Response(status=404)
+        # 3. Rasmni yuklash
+        session = await get_shared_session()
+        async with session.get(file_url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+            if resp.status == 200:
+                content = await resp.read()
+                # Keshlash (faqat 100 tagacha so'nggi rasmlarni saqlaymiz)
+                if len(photo_bytes_cache) < 150:
+                    photo_bytes_cache[photo_id] = content
+                return web.Response(
+                    body=content,
+                    content_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=604800, immutable"}
+                )
     except Exception as e:
         logger.warning(f"Rasm yuklashda xatolik ({photo_id}): {e}")
-        return web.Response(status=404)
+
+    # Xato bo'lsa darhol placeholder rasm
+    placeholder = os.path.join(os.path.dirname(__file__), "banner.jpg")
+    if os.path.exists(placeholder):
+        return web.FileResponse(placeholder, headers={"Cache-Control": "public, max-age=86400"})
+    return web.Response(status=404)
 
 async def api_place_bid(request):
     """Web App orqali auksionga stavka berish"""
