@@ -8,6 +8,10 @@ ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "").strip()
 ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_RAW.split(",") if x.strip().isdigit()]
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Javoh2323..")
 
+# Web App sozlamalari
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://telefon-bozor.onrender.com").strip()
+PORT = int(os.getenv("PORT", 8080))
+
 # Database Settings
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/telefon_bozor_db")
 DB_HOST = os.getenv("DB_HOST", "localhost")

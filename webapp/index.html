@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Telefon Savdo — Mobil Bozor</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="app">
+    <!-- VIEW 1: E'LONLAR (BOSH SAHIFA) -->
+    <div id="viewHome" class="app-view active">
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-top">
+          <div class="brand-title">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            <span>TELEFON SAVDO</span>
+          </div>
+          <div class="user-badge" onclick="switchBottomNav('profile')">
+            <i class="fa-solid fa-circle-user"></i>
+            <span id="userName">Profil</span>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs (Bozor / Auksion) va O'ng tomonda Hudud tanlang -->
+        <div class="tabs-and-region-row">
+          <div class="nav-tabs">
+            <button class="tab-btn active" id="tabMarket" onclick="switchTab('market')">
+              <i class="fa-solid fa-store"></i> Bozor
+            </button>
+            <button class="tab-btn" id="tabAuction" onclick="switchTab('auction')">
+              <i class="fa-solid fa-gavel"></i> Kimoshdi
+            </button>
+          </div>
+          <div class="header-region-selector">
+            <i class="fa-solid fa-location-dot region-ico"></i>
+            <select id="regionSelect" onchange="onRegionChange(this.value)">
+              <option value="all">📍 Hudud tanlang</option>
+              <option value="Toshkent shahri">Toshkent sh.</option>
+              <option value="Toshkent viloyati">Toshkent vil.</option>
+              <option value="Samarqand">Samarqand</option>
+              <option value="Farg'ona">Farg'ona</option>
+              <option value="Andijon">Andijon</option>
+              <option value="Namangan">Namangan</option>
+              <option value="Buxoro">Buxoro</option>
+              <option value="Qashqadaryo">Qashqadaryo</option>
+              <option value="Surxondaryo">Surxondaryo</option>
+              <option value="Xorazm">Xorazm</option>
+              <option value="Navoiy">Navoiy</option>
+              <option value="Jizzax">Jizzax</option>
+              <option value="Sirdaryo">Sirdaryo</option>
+              <option value="Qoraqalpog'iston">Qoraqalpog'iston</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="searchInput" placeholder="Model bo'yicha qidiring..." oninput="onSearchInput()">
+          <button class="clear-btn" id="clearSearch" onclick="clearSearch()" style="display: none;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Brands Carousel -->
+        <div class="brands-wrapper" id="brandsWrapper">
+          <div class="brand-chip active" onclick="filterByBrand('all', this)">Barchasi</div>
+          <div class="brand-chip" onclick="filterByBrand('Apple', this)"><i class="fa-brands fa-apple"></i> Apple</div>
+          <div class="brand-chip" onclick="filterByBrand('Samsung', this)">Samsung</div>
+          <div class="brand-chip" onclick="filterByBrand('Xiaomi', this)">Xiaomi</div>
+          <div class="brand-chip" onclick="filterByBrand('Honor', this)">Honor</div>
+          <div class="brand-chip" onclick="filterByBrand('Huawei', this)">Huawei</div>
+          <div class="brand-chip" onclick="filterByBrand('Realme', this)">Realme</div>
+          <div class="brand-chip" onclick="filterByBrand('Vivo', this)">Vivo</div>
+          <div class="brand-chip" onclick="filterByBrand('Google Pixel', this)">Pixel</div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="content-container">
+        <!-- Market Section -->
+        <section id="marketSection">
+          <div class="section-header">
+            <span class="count-badge" id="adsCount">Yuklanmoqda...</span>
+          </div>
+          <div class="ads-grid" id="adsGrid"></div>
+          <div class="loading-spinner" id="loadingSpinner">
+            <div class="spinner"></div>
+            <p>E'lonlar yuklanmoqda...</p>
+          </div>
+          <div class="empty-state" id="emptyState" style="display: none;">
+            <i class="fa-solid fa-box-open"></i>
+            <h3>Hech narsa topilmadi</h3>
+            <p>Qidiruv so'zini o'zgartiring yoki boshqa brendni tanlang.</p>
+          </div>
+        </section>
+
+        <!-- Auction Section -->
+        <section id="auctionSection" style="display: none;">
+          <div class="section-header">
+            <span class="count-badge" id="auctionsCount">Faol auksionlar</span>
+            <div class="header-region-selector auction-inner-region">
+              <i class="fa-solid fa-location-dot region-ico"></i>
+              <select id="auctionRegionSelect" onchange="onRegionChange(this.value)">
+                <option value="all">📍 Barcha viloyatlar</option>
+                <option value="Toshkent shahri">Toshkent shahri</option>
+                <option value="Toshkent viloyati">Toshkent viloyati</option>
+                <option value="Samarqand">Samarqand</option>
+                <option value="Farg'ona">Farg'ona</option>
+                <option value="Andijon">Andijon</option>
+                <option value="Namangan">Namangan</option>
+                <option value="Buxoro">Buxoro</option>
+                <option value="Qashqadaryo">Qashqadaryo</option>
+                <option value="Surxondaryo">Surxondaryo</option>
+                <option value="Xorazm">Xorazm</option>
+                <option value="Navoiy">Navoiy</option>
+                <option value="Jizzax">Jizzax</option>
+                <option value="Sirdaryo">Sirdaryo</option>
+                <option value="Qoraqalpog'iston">Qoraqalpog'iston</option>
+              </select>
+            </div>
+          </div>
+          <div class="auctions-list" id="auctionsList"></div>
+          <div class="empty-state" id="emptyAuctionState" style="display: none;">
+            <i class="fa-solid fa-gavel"></i>
+            <h3>Hozirda faol auksionlar yo'q</h3>
+            <p>Tez orada yangi kimoshdi savdolari qo'shiladi!</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- VIEW 2: E'LON BERISH (FORM) -->
+    <div id="viewPostAd" class="app-view" style="display: none;">
+      <header class="simple-header">
+        <h2>➕ Yangi e'lon joylash</h2>
+        <p>Telefoningizni tez va qulay soting</p>
+      </header>
+      <div class="form-container">
+        <div class="form-group">
+          <label>Brendni tanlang *</label>
+          <select id="postBrand" onchange="onBrandChange()">
+            <option value="Apple">Apple</option>
+            <option value="Samsung">Samsung</option>
+            <option value="Xiaomi">Xiaomi</option>
+            <option value="Honor">Honor</option>
+            <option value="Huawei">Huawei</option>
+            <option value="Realme">Realme</option>
+            <option value="Vivo">Vivo</option>
+            <option value="Boshqa">Boshqa brend</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Model nomi *</label>
+          <input type="text" id="postModel" placeholder="Masalan: iPhone 15 Pro Max">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Xotira *</label>
+            <select id="postMemory">
+              <option value="64 GB">64 GB</option>
+              <option value="128 GB" selected>128 GB</option>
+              <option value="256 GB">256 GB</option>
+              <option value="512 GB">512 GB</option>
+              <option value="1 TB">1 TB</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Holati *</label>
+            <select id="postCondition">
+              <option value="Yangi (Upakovka)">Yangi (Upakovka)</option>
+              <option value="Ideal (A'lo darajada)">Ideal</option>
+              <option value="Yaxshi (Aybi yo'q)">Yaxshi</option>
+              <option value="O'rtacha">O'rtacha</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Narxi *</label>
+            <input type="text" id="postPrice" placeholder="Masalan: 350$ yoki 4 500 000 so'm">
+          </div>
+          <div class="form-group">
+            <label>Batareya (Yomkost)</label>
+            <input type="text" id="postBattery" placeholder="Masalan: 88% yoki 100%">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Rangi</label>
+            <input type="text" id="postColor" placeholder="Masalan: Qora, Moviy">
+          </div>
+          <div class="form-group">
+            <label>Viloyat / Shahar *</label>
+            <select id="postRegion">
+              <option value="Toshkent shahri">Toshkent shahri</option>
+              <option value="Toshkent viloyati">Toshkent viloyati</option>
+              <option value="Samarqand">Samarqand</option>
+              <option value="Farg'ona">Farg'ona</option>
+              <option value="Andijon">Andijon</option>
+              <option value="Namangan">Namangan</option>
+              <option value="Buxoro">Buxoro</option>
+              <option value="Qashqadaryo">Qashqadaryo</option>
+              <option value="Surxondaryo">Surxondaryo</option>
+              <option value="Xorazm">Xorazm</option>
+              <option value="Navoiy">Navoiy</option>
+              <option value="Jizzax">Jizzax</option>
+              <option value="Sirdaryo">Sirdaryo</option>
+              <option value="Qoraqalpog'iston">Qoraqalpog'iston</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Telefon raqamingiz *</label>
+          <input type="text" id="postPhone" placeholder="+998901234567">
+        </div>
+
+        <div class="form-group">
+          <label>Telegram username</label>
+          <input type="text" id="postUsername" placeholder="@username">
+        </div>
+
+        <div class="form-group">
+          <label>Qo'shimcha ma'lumot</label>
+          <textarea id="postDesc" rows="3" placeholder="Karobka-dokument bormi, holati qanday..."></textarea>
+        </div>
+
+        <button class="primary-submit-btn" onclick="submitPostAd()">
+          <i class="fa-solid fa-paper-plane"></i> E'lonni chop etish
+        </button>
+      </div>
+    </div>
+
+    <!-- VIEW 3: INFO (MA'LUMOT) -->
+    <div id="viewInfo" class="app-view" style="display: none;">
+      <header class="simple-header">
+        <h2>ℹ️ Ma'lumot va Yordam</h2>
+        <p>Bozor qoidalari, VIP xizmatlar va aloqa</p>
+      </header>
+      <div class="info-container">
+        <!-- VIP info card -->
+        <div class="info-card vip-card">
+          <div class="info-card-header">
+            <i class="fa-solid fa-crown"></i>
+            <h3>⭐️ VIP E'lon xizmati</h3>
+          </div>
+          <p>E'loningizni eng yuqori o'ringa qo'ying va xaridoringizni 3 barobar tezroq toping!</p>
+          <div class="vip-tariffs">
+            <div class="tariff-item"><b>1 kun:</b> 2 999 so'm</div>
+            <div class="tariff-item"><b>2 kun:</b> 3 999 so'm</div>
+            <div class="tariff-item"><b>3 kun:</b> 5 999 so'm</div>
+          </div>
+          <p style="font-size: 12px; margin-top: 8px; opacity: 0.8;">To'lov bot orqali avtomatlashtirilgan.</p>
+        </div>
+
+        <!-- Auction info -->
+        <div class="info-card">
+          <div class="info-card-header">
+            <i class="fa-solid fa-gavel"></i>
+            <h3>🔨 Auksion savdosi qoidalari</h3>
+          </div>
+          <p>Kimoshdi savdosida eng yuqori naqd pul taklif qilgan xaridor g'olib deb topiladi va telefonni sotib oladi. Vaqt tugagach kontaktlar avtomatik yuboriladi.</p>
+        </div>
+
+        <!-- Admin contact -->
+        <div class="info-card">
+          <div class="info-card-header">
+            <i class="fa-solid fa-headset"></i>
+            <h3>👨‍💻 Admin bilan bog'lanish</h3>
+          </div>
+          <p>Savollar, takliflar yoki reklama masalalari bo'yicha:</p>
+          <div class="admin-links">
+            <a href="https://t.me/JOVIDZE" target="_blank" class="contact-pill"><i class="fa-brands fa-telegram"></i> @JOVIDZE</a>
+            <a href="tel:+998947762528" class="contact-pill"><i class="fa-solid fa-phone"></i> +998 94 776 25 28</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: PROFIL -->
+    <div id="viewProfile" class="app-view" style="display: none;">
+      <header class="profile-header">
+        <div class="profile-avatar">
+          <i class="fa-solid fa-user-check"></i>
+        </div>
+        <h2 id="profileName">Foydalanuvchi</h2>
+        <span class="user-tg-id" id="profileId">ID: —</span>
+      </header>
+
+      <div class="profile-container">
+        <div class="profile-stats">
+          <div class="stat-box">
+            <b id="myAdsCount">0</b>
+            <span>Mening e'lonlarim</span>
+          </div>
+          <div class="stat-box">
+            <b id="myAuctionsCount">0</b>
+            <span>Auksionlarim</span>
+          </div>
+        </div>
+
+        <h3 class="profile-section-title">📋 Mening faol e'lonlarim</h3>
+        <div id="myAdsList" class="my-ads-list">
+          <div class="empty-state">
+            <i class="fa-solid fa-folder-open"></i>
+            <p>Sizda hali e'lonlar mavjud emas.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETAIL MODAL -->
+    <div class="modal-overlay" id="adModal" onclick="closeModal(event)">
+      <div class="modal-card" onclick="event.stopPropagation()">
+        <button class="close-modal-btn" onclick="closeModalDirect()">&times;</button>
+        <div class="modal-image-wrap">
+          <img id="modalImg" src="" alt="Telefon rasmi">
+          <span class="modal-vip-badge" id="modalVipBadge" style="display:none;">⭐️ VIP</span>
+        </div>
+        <div class="modal-body">
+          <h2 id="modalTitle">Model</h2>
+          <div class="modal-price" id="modalPrice">Narx</div>
+
+          <div class="specs-grid">
+            <div class="spec-item"><span class="label">Xotira:</span> <span class="val" id="modalMemory">128 GB</span></div>
+            <div class="spec-item"><span class="label">Holati:</span> <span class="val" id="modalCondition">Ideal</span></div>
+            <div class="spec-item"><span class="label">Batareya:</span> <span class="val" id="modalBattery">100%</span></div>
+            <div class="spec-item"><span class="label">Rangi:</span> <span class="val" id="modalColor">Qora</span></div>
+            <div class="spec-item full"><span class="label">Hudud:</span> <span class="val" id="modalRegion">Toshkent</span></div>
+          </div>
+
+          <div class="desc-box">
+            <h4>Qo'shimcha ma'lumot:</h4>
+            <p id="modalDesc">Ma'lumot yo'q.</p>
+          </div>
+
+          <div class="contact-actions">
+            <a href="#" id="modalTgLink" class="action-btn tg-btn" target="_blank">
+              <i class="fa-brands fa-telegram"></i> Telegramda yozish
+            </a>
+            <a href="#" id="modalPhoneLink" class="action-btn phone-btn">
+              <i class="fa-solid fa-phone"></i> Qo'ng'iroq qilish
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BID MODAL -->
+    <div class="modal-overlay" id="bidModal" onclick="closeBidModal(event)">
+      <div class="modal-card" onclick="event.stopPropagation()">
+        <button class="close-modal-btn" onclick="closeBidModalDirect()">&times;</button>
+        <div class="modal-body">
+          <h3>💰 Stavka qo'yish</h3>
+          <p id="bidAuctionTitle" style="color: var(--hint-color); margin-bottom: 12px;"></p>
+          <div class="bid-info-box">
+            <div>Hozirgi narx: <b id="bidCurrentPrice">0 so'm</b></div>
+            <div>Minimal qadam: <b id="bidMinStep">+50 000 so'm</b></div>
+          </div>
+          <div class="bid-input-wrap">
+            <input type="number" id="bidAmountInput" placeholder="Taklif summasi">
+          </div>
+          <div class="quick-bid-btns" id="quickBidButtons"></div>
+          <button class="action-btn submit-bid-btn" onclick="submitBid()">
+            Tasdiqlash va stavka berish
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASTKI NAVIGATSIYA (BOTTOM NAVIGATION BAR) -->
+    <nav class="bottom-nav">
+      <!-- 1. Chap tomonda: Domiklik tugma (E'lonlar / Bosh sahifa) -->
+      <button class="nav-item active" id="navHome" onclick="switchBottomNav('home')">
+        <i class="fa-solid fa-house"></i>
+        <span>E'lonlar</span>
+      </button>
+
+      <!-- 2. E'lon berishning chap tarafidan: Auksion knopkasi -->
+      <button class="nav-item" id="navAuction" onclick="switchBottomNav('auction')">
+        <i class="fa-solid fa-gavel"></i>
+        <span>Auksion</span>
+      </button>
+
+      <!-- 3. O'rtada: E'lon berish tugmasi -->
+      <button class="nav-item nav-item-post" id="navPost" onclick="switchBottomNav('post_ad')">
+        <div class="post-fab-icon">
+          <i class="fa-solid fa-plus"></i>
+        </div>
+        <span>E'lon berish</span>
+      </button>
+
+      <!-- 4. O'ng tomonda: Info bo'limi -->
+      <button class="nav-item" id="navInfo" onclick="switchBottomNav('info')">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>Ma'lumot</span>
+      </button>
+
+      <!-- 5. O'ng tomonda: Profil belgisi -->
+      <button class="nav-item" id="navProfile" onclick="switchBottomNav('profile')">
+        <i class="fa-solid fa-user"></i>
+        <span>Profil</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

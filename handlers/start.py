@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, MenuButtonWebApp, WebAppInfo
 from aiogram.fsm.context import FSMContext
 
 from database import db
@@ -17,6 +17,18 @@ async def cmd_start(message: Message, state: FSMContext):
     user = await db.get_user(user_id)
     is_admin = user_id in config.ADMIN_IDS
 
+    # Chat pastidagi Menyu tugmasini Web App ga sozlaymiz
+    try:
+        await message.bot.set_chat_menu_button(
+            chat_id=user_id,
+            menu_button=MenuButtonWebApp(
+                text="📱 Bozor",
+                web_app=WebAppInfo(url=config.WEBAPP_URL)
+            )
+        )
+    except Exception:
+        pass
+
     if not user:
         await message.answer(
             f"Assalomu alaykum, <b>{message.from_user.full_name}</b>!\n\n"
@@ -28,7 +40,7 @@ async def cmd_start(message: Message, state: FSMContext):
     else:
         await message.answer(
             f"Assalomu alaykum, <b>{user.get('full_name', message.from_user.full_name)}</b>!\n\n"
-            f"Kerakli bo'limni tanlang:",
+            f"Kerakli bo'limni tanlang yoki <b>🌐 Mobil Bozor</b> tugmasini bosing:",
             reply_markup=get_main_menu(is_admin=is_admin)
         )
 
