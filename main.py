@@ -39,6 +39,10 @@ from handlers import setup_routers
 from utils import auction_background_checker
 
 # Logging sozlamalari
+import warnings
+warnings.filterwarnings("ignore", category=ResourceWarning)
+logging.getLogger("asyncio").setLevel(logging.CRITICAL)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -49,17 +53,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class CertifiAiohttpSession(AiohttpSession):
-    """Windows tizimlarida SSL sertifikat xatolarini to'g'irlash uchun maxsus sessiya"""
+    """SSL va yopiq sessiyalarni to'g'ri boshqaruvchi xavfsiz sessiya"""
     async def create_session(self) -> aiohttp.ClientSession:
-        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-        # Agar tizimda SSL tekshiruvi bloklangan bo'lsa
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
-        connector = TCPConnector(ssl=ssl_ctx)
-        return aiohttp.ClientSession(
-            connector=connector,
-            json_serialize=self.json_dumps,
-        )
+        if self._session is None or self._session.closed:
+            ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+            connector = TCPConnector(ssl=ssl_ctx)
+            self._session = aiohttp.ClientSession(
+                connector=connector,
+                json_serialize=self.json_dumps,
+            )
+        return self._session
 
 async def set_bot_commands(bot: Bot):
     """Bot menyusidagi buyruqlar"""
