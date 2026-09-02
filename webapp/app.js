@@ -25,8 +25,7 @@ const currentUser = tg?.initDataUnsafe?.user || {
   username: "user"
 };
 
-// Ism va ID ni o'rnatish
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
   try {
     const userNameEl = document.getElementById('userName');
     const profileNameEl = document.getElementById('profileName');
@@ -44,7 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadAds();
   loadAuctions();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 // ==================== BOTTOM NAVIGATION (PASTKI MENYU) ====================
 

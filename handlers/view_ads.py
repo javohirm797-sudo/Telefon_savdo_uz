@@ -28,6 +28,25 @@ async def clear_previous_ad_messages(bot, chat_id: int, user_id: int):
             pass
     user_ad_messages[user_id] = []
 
+async def safe_send_ad(bot, chat_id: int, photo_id: str, caption: str, reply_markup):
+    """Rasmli e'lonni xavfsiz yuborish, agar rasm yuborishda xatolik bo'lsa matn yuborish"""
+    try:
+        if photo_id and photo_id not in ("default", "test_photo_id"):
+            return await bot.send_photo(
+                chat_id=chat_id,
+                photo=photo_id,
+                caption=caption,
+                reply_markup=reply_markup
+            )
+    except Exception:
+        pass
+    
+    return await bot.send_message(
+        chat_id=chat_id,
+        text=caption,
+        reply_markup=reply_markup
+    )
+
 async def show_ad_page(event, user_id: int, page_index: int = 0, is_edit: bool = False):
     """E'lonlar sahifasini 2 tadan qilib chiqarish"""
     bot = event.bot
@@ -99,12 +118,7 @@ async def show_ad_page(event, user_id: int, page_index: int = 0, is_edit: bool =
             seller_username=ad.get("contact_username", ""),
             seller_phone=ad.get("contact_phone", "")
         )
-        msg = await bot.send_photo(
-            chat_id=chat_id,
-            photo=ad["photo_id"],
-            caption=caption,
-            reply_markup=kb
-        )
+        msg = await safe_send_ad(bot, chat_id, ad["photo_id"], caption, kb)
         sent_msg_ids.append(msg.message_id)
     else:
         # 2 ta e'lon bo'lsa
@@ -116,21 +130,11 @@ async def show_ad_page(event, user_id: int, page_index: int = 0, is_edit: bool =
         caption2 = f"📱 <b>[{ad2_idx}/{total_count}] 2-TELEFON:</b>\n\n" + format_ad_caption(ad2, is_preview=False)
 
         kb1 = get_single_ad_contact_kb(ad1)
-        msg1 = await bot.send_photo(
-            chat_id=chat_id,
-            photo=ad1["photo_id"],
-            caption=caption1,
-            reply_markup=kb1
-        )
+        msg1 = await safe_send_ad(bot, chat_id, ad1["photo_id"], caption1, kb1)
         sent_msg_ids.append(msg1.message_id)
 
         kb2 = get_two_ads_navigation_kb(ad2, current_page=page_index, total_pages=total_pages, total_count=total_count)
-        msg2 = await bot.send_photo(
-            chat_id=chat_id,
-            photo=ad2["photo_id"],
-            caption=caption2,
-            reply_markup=kb2
-        )
+        msg2 = await safe_send_ad(bot, chat_id, ad2["photo_id"], caption2, kb2)
         sent_msg_ids.append(msg2.message_id)
 
     user_ad_messages[user_id] = sent_msg_ids
