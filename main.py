@@ -85,19 +85,7 @@ async def main():
         print("=======================================================\n")
         return
 
-      class CertifiAiohttpSession(AiohttpSession):
-    """Windows tizimlarida SSL sertifikat xatolarini to'g'irlash uchun maxsus sessiya"""
-    async def create_session(self) -> aiohttp.ClientSession:
-        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-        # Agar tizimda SSL tekshiruvi bloklangan bo'lsa
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE
-        connector = TCPConnector(ssl=ssl_ctx)
-        return aiohttp.ClientSession(
-            connector=connector,
-            connector_owner=True,
-            json_serialize=self.json_dumps,
-        )
+    session = CertifiAiohttpSession()
 
     # Bot va Dispatcher yaratish
     bot = Bot(
