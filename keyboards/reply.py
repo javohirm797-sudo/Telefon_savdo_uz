@@ -1,9 +1,17 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+import config
 
 def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
     """Bosh menyu klaviaturasi"""
     buttons = [
+        [
+            KeyboardButton(
+                text="🌐 Mobil Bozor (Web App)", 
+                web_app=WebAppInfo(url=config.WEBAPP_URL)
+            )
+        ],
         [KeyboardButton(text="🛍 Telefonlar bozori (E'lonlar)"), KeyboardButton(text="➕ E'lon joylash")],
+        [KeyboardButton(text="🔨 Kimoshdi (Auksion)"), KeyboardButton(text="➕ Auksionga qo'yish")],
         [KeyboardButton(text="📋 Mening e'lonlarim"), KeyboardButton(text="⭐️ VIP xizmati")],
         [KeyboardButton(text="👨‍💻 Bog'lanish (Admin)")]
     ]

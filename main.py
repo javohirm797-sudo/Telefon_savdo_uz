@@ -1,21 +1,22 @@
 import asyncio
 import logging
 import sys
-import ssl
 import os
 from aiohttp import web
 
-async def ping(request):
-    return web.Response(text="Bot is running!")
+from webapp.api import setup_webapp_routes
 
-async def start_dummy_server():
+async def start_webapp_server(bot):
+    """Web App va API serverini ishga tushirish"""
     app = web.Application()
-    app.router.add_get("/", ping)
+    setup_webapp_routes(app, bot)
     runner = web.AppRunner(app)
     await runner.setup()
-    port = int(os.environ.get("PORT", 8080))
+    port = config.PORT
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
+    logging.getLogger(__name__).info(f"🌐 Web App server ishga tushdi: http://localhost:{port}")
+import ssl
 # Windows console UTF-8 sozlamasi
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -35,6 +36,7 @@ from aiogram.types import BotCommand
 import config
 from database import db
 from handlers import setup_routers
+from utils import auction_background_checker
 
 # Logging sozlamalari
 logging.basicConfig(
@@ -64,6 +66,8 @@ async def set_bot_commands(bot: Bot):
     commands = [
         BotCommand(command="start", description="🔄 Botni qayta ishga tushirish"),
         BotCommand(command="market", description="🛍 Telefonlar bozori (E'lonlar)"),
+        BotCommand(command="auction", description="🔨 Kimoshdi (Auksion)"),
+        BotCommand(command="post_auction", description="➕ Auksionga telefon qo'yish"),
         BotCommand(command="post_ad", description="➕ Yangi e'lon joylash"),
         BotCommand(command="my_ads", description="📋 Mening e'lonlarim"),
         BotCommand(command="vip", description="⭐️ VIP e'lon xizmati"),
@@ -114,6 +118,9 @@ async def main():
     # Buyruqlarni o'rnatish
     await set_bot_commands(bot)
 
+    # Auksion tekshiruvchi background vazifasini ishga tushirish
+    asyncio.create_task(auction_background_checker(bot))
+
     bot_info = await bot.get_me()
     logger.info(f"🚀 Bot muvaffaqiyatli ishga tushdi: @{bot_info.username}")
     print(f"\n=======================================================")
@@ -122,8 +129,8 @@ async def main():
     print(f"💳 To'lov karta: {config.CARD_NUMBER} ({config.CARD_HOLDER})")
     print("=======================================================\n")
 
-    # Pollingni boshlash
-    await start_dummy_server()
+    # Web App serveri va Pollingni boshlash
+    await start_webapp_server(bot)
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)

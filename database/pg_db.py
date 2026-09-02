@@ -1,6 +1,7 @@
 import logging
 import datetime
-from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any, Tuple
 import asyncpg
 import aiosqlite
 import config
@@ -105,6 +106,43 @@ class Database:
                         reviewed_at TIMESTAMP
                     );
                 """)
+                # Auksionlar jadvali (PostgreSQL)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS auctions (
+                        id SERIAL PRIMARY KEY,
+                        user_id BIGINT NOT NULL,
+                        brand TEXT NOT NULL,
+                        model TEXT NOT NULL,
+                        condition TEXT NOT NULL,
+                        memory TEXT NOT NULL,
+                        battery TEXT,
+                        color TEXT,
+                        region TEXT NOT NULL,
+                        photo_id TEXT NOT NULL,
+                        description TEXT,
+                        contact_phone TEXT NOT NULL,
+                        contact_username TEXT,
+                        start_price BIGINT NOT NULL,
+                        current_price BIGINT NOT NULL,
+                        min_step INTEGER NOT NULL DEFAULT 50000,
+                        current_winner_id BIGINT,
+                        current_winner_name TEXT,
+                        end_time TIMESTAMP NOT NULL,
+                        status VARCHAR(20) DEFAULT 'active',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                # Auksion stavkalari jadvali (PostgreSQL)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS auction_bids (
+                        id SERIAL PRIMARY KEY,
+                        auction_id INTEGER NOT NULL,
+                        user_id BIGINT NOT NULL,
+                        user_name TEXT NOT NULL,
+                        bid_amount BIGINT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
         else:
             async with aiosqlite.connect(self.sqlite_db_path) as conn:
                 await conn.execute("""
@@ -151,6 +189,43 @@ class Database:
                         status TEXT DEFAULT 'pending',
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         reviewed_at DATETIME
+                    );
+                """)
+                # Auksionlar jadvali (SQLite)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS auctions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        brand TEXT NOT NULL,
+                        model TEXT NOT NULL,
+                        condition TEXT NOT NULL,
+                        memory TEXT NOT NULL,
+                        battery TEXT,
+                        color TEXT,
+                        region TEXT NOT NULL,
+                        photo_id TEXT NOT NULL,
+                        description TEXT,
+                        contact_phone TEXT NOT NULL,
+                        contact_username TEXT,
+                        start_price INTEGER NOT NULL,
+                        current_price INTEGER NOT NULL,
+                        min_step INTEGER NOT NULL DEFAULT 50000,
+                        current_winner_id INTEGER,
+                        current_winner_name TEXT,
+                        end_time DATETIME NOT NULL,
+                        status TEXT DEFAULT 'active',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+                # Auksion stavkalari jadvali (SQLite)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS auction_bids (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        auction_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        user_name TEXT NOT NULL,
+                        bid_amount INTEGER NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
                 await conn.commit()
@@ -271,15 +346,20 @@ class Database:
         conditions = ["status = 'active'"]
         params = []
 
-        if brand and brand != "Barcha brendlar":
+        if brand and brand not in ["Barcha brendlar", "all"]:
             params.append(brand)
             conditions.append(f"brand = ${len(params)}" if self.is_postgres else "brand = ?")
 
-        if model and model != "Barcha modellar":
+        if model and model not in ["Barcha modellar", "all"]:
             params.append(model)
-            conditions.append(f"model = ${len(params)}" if self.is_postgres else "model = ?")
+            conditions.append(f"(model = ${len(params)} OR model ILIKE ${len(params)})" if self.is_postgres else "(model = ? OR model LIKE ?)")
+            if not self.is_postgres:
+                params.append(f"%{model}%")
+            else:
+                params.append(f"%{model}%")
+                conditions[-1] = f"(model = ${len(params)-1} OR model ILIKE ${len(params)})"
 
-        if region and region != "Barcha viloyatlar":
+        if region and region not in ["Barcha viloyatlar", "all"]:
             params.append(region)
             conditions.append(f"region = ${len(params)}" if self.is_postgres else "region = ?")
 
@@ -315,15 +395,20 @@ class Database:
         conditions = ["status = 'active'"]
         params = []
 
-        if brand and brand != "Barcha brendlar":
+        if brand and brand not in ["Barcha brendlar", "all"]:
             params.append(brand)
             conditions.append(f"brand = ${len(params)}" if self.is_postgres else "brand = ?")
 
-        if model and model != "Barcha modellar":
+        if model and model not in ["Barcha modellar", "all"]:
             params.append(model)
-            conditions.append(f"model = ${len(params)}" if self.is_postgres else "model = ?")
+            if self.is_postgres:
+                params.append(f"%{model}%")
+                conditions.append(f"(model = ${len(params)-1} OR model ILIKE ${len(params)})")
+            else:
+                params.append(f"%{model}%")
+                conditions.append("(model = ? OR model LIKE ?)")
 
-        if region and region != "Barcha viloyatlar":
+        if region and region not in ["Barcha viloyatlar", "all"]:
             params.append(region)
             conditions.append(f"region = ${len(params)}" if self.is_postgres else "region = ?")
 
@@ -492,6 +577,250 @@ class Database:
                     "total_earned": total_earned,
                     "db_type": "SQLite (Fayl)"
                 }
+
+    # ==================== AUCTION METHODS ====================
+
+    async def create_auction(self, data: Dict[str, Any]) -> int:
+        """Yangi auksion yaratish"""
+        end_time = data["end_time"]
+        if isinstance(end_time, datetime):
+            end_time_val = end_time if self.is_postgres else end_time.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            end_time_val = end_time
+
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                auc_id = await conn.fetchval("""
+                    INSERT INTO auctions (
+                        user_id, brand, model, condition, memory, battery, 
+                        color, region, photo_id, description, 
+                        contact_phone, contact_username, start_price, current_price,
+                        min_step, end_time, status
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'active'
+                    ) RETURNING id;
+                """,
+                data["user_id"], data["brand"], data["model"], data["condition"],
+                data["memory"], data.get("battery", "—"), data.get("color", "—"),
+                data["region"], data["photo_id"], data.get("description", ""),
+                data["contact_phone"], data.get("contact_username", ""),
+                data["start_price"], data["start_price"], data.get("min_step", 50000),
+                end_time_val
+                )
+                return auc_id
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                cursor = await conn.execute("""
+                    INSERT INTO auctions (
+                        user_id, brand, model, condition, memory, battery, 
+                        color, region, photo_id, description, 
+                        contact_phone, contact_username, start_price, current_price,
+                        min_step, end_time, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active');
+                """, (
+                    data["user_id"], data["brand"], data["model"], data["condition"],
+                    data["memory"], data.get("battery", "—"), data.get("color", "—"),
+                    data["region"], data["photo_id"], data.get("description", ""),
+                    data["contact_phone"], data.get("contact_username", ""),
+                    data["start_price"], data["start_price"], data.get("min_step", 50000),
+                    end_time_val
+                ))
+                await conn.commit()
+                return cursor.lastrowid
+
+    async def get_auction_by_id(self, auction_id: int) -> Optional[Dict[str, Any]]:
+        """Auksionni ID bo'yicha olish"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT * FROM auctions WHERE id = $1;", auction_id)
+                return dict(row) if row else None
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                conn.row_factory = aiosqlite.Row
+                async with conn.execute("SELECT * FROM auctions WHERE id = ?;", (auction_id,)) as cursor:
+                    row = await cursor.fetchone()
+                    return dict(row) if row else None
+
+    async def get_active_auctions(self, limit: int = 10, offset: int = 0) -> List[Dict[str, Any]]:
+        """Faol auksionlar ro'yxatini olish"""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT * FROM auctions 
+                    WHERE status = 'active' AND end_time > NOW()
+                    ORDER BY id DESC
+                    LIMIT $1 OFFSET $2;
+                """, limit, offset)
+                return [dict(r) for r in rows]
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                conn.row_factory = aiosqlite.Row
+                async with conn.execute("""
+                    SELECT * FROM auctions 
+                    WHERE status = 'active' AND datetime(end_time) > datetime(?)
+                    ORDER BY id DESC
+                    LIMIT ? OFFSET ?;
+                """, (now_str, limit, offset)) as cursor:
+                    rows = await cursor.fetchall()
+                    return [dict(r) for r in rows]
+
+    async def get_active_auctions_count(self) -> int:
+        """Faol auksionlar soni"""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                return await conn.fetchval("""
+                    SELECT COUNT(*) FROM auctions 
+                    WHERE status = 'active' AND end_time > NOW();
+                """)
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                async with conn.execute("""
+                    SELECT COUNT(*) FROM auctions 
+                    WHERE status = 'active' AND datetime(end_time) > datetime(?);
+                """, (now_str,)) as cursor:
+                    res = await cursor.fetchone()
+                    return res[0] if res else 0
+
+    async def place_bid(self, auction_id: int, user_id: int, user_name: str, bid_amount: int) -> Tuple[bool, str, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """
+        Auksionga stavka qo'yish
+        Qaytaradi: (muvaffaqiyatlimi, xabar, avvalgi_yetakchi_dict, auksion_dict)
+        """
+        auction = await self.get_auction_by_id(auction_id)
+        if not auction:
+            return False, "Auksion topilmadi.", None, None
+
+        if auction["status"] != "active":
+            return False, "Ushbu auksion allaqachon yakunlangan.", None, auction
+
+        if auction["user_id"] == user_id:
+            return False, "O'zingiz qo'ygan auksionga stavka bera olmaysiz.", None, auction
+
+        min_step = auction.get("min_step", 50000)
+        curr_price = auction["current_price"]
+        curr_winner = auction.get("current_winner_id")
+
+        # Agar hali hech kim stavka qo'ymagan bo'lsa
+        if not curr_winner:
+            required_amount = curr_price
+        else:
+            required_amount = curr_price + min_step
+
+        if bid_amount < required_amount:
+            return False, f"Taklif qilinayotgan summa kamida {required_amount:,} so'm bo'lishi kerak!", None, auction
+
+        previous_winner = None
+        if curr_winner and curr_winner != user_id:
+            previous_winner = {
+                "user_id": curr_winner,
+                "user_name": auction.get("current_winner_name", "Noma'lum")
+            }
+
+        # Bazani yangilash
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute("""
+                        UPDATE auctions 
+                        SET current_price = $1, current_winner_id = $2, current_winner_name = $3
+                        WHERE id = $4;
+                    """, bid_amount, user_id, user_name, auction_id)
+                    await conn.execute("""
+                        INSERT INTO auction_bids (auction_id, user_id, user_name, bid_amount)
+                        VALUES ($1, $2, $3, $4);
+                    """, auction_id, user_id, user_name, bid_amount)
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                await conn.execute("""
+                    UPDATE auctions 
+                    SET current_price = ?, current_winner_id = ?, current_winner_name = ?
+                    WHERE id = ?;
+                """, (bid_amount, user_id, user_name, auction_id))
+                await conn.execute("""
+                    INSERT INTO auction_bids (auction_id, user_id, user_name, bid_amount)
+                    VALUES (?, ?, ?, ?);
+                """, (auction_id, user_id, user_name, bid_amount))
+                await conn.commit()
+
+        updated_auction = await self.get_auction_by_id(auction_id)
+        return True, "Stavkangiz muvaffaqiyatli qabul qilindi!", previous_winner, updated_auction
+
+    async def get_auction_bids(self, auction_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+        """Auksionning so'nggi stavkalar tarixi"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT * FROM auction_bids 
+                    WHERE auction_id = $1 
+                    ORDER BY id DESC 
+                    LIMIT $2;
+                """, auction_id, limit)
+                return [dict(r) for r in rows]
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                conn.row_factory = aiosqlite.Row
+                async with conn.execute("""
+                    SELECT * FROM auction_bids 
+                    WHERE auction_id = ? 
+                    ORDER BY id DESC 
+                    LIMIT ?;
+                """, (auction_id, limit)) as cursor:
+                    rows = await cursor.fetchall()
+                    return [dict(r) for r in rows]
+
+    async def get_expired_active_auctions(self) -> List[Dict[str, Any]]:
+        """Muddati tugagan faol auksionlarni topish"""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT * FROM auctions 
+                    WHERE status = 'active' AND end_time <= NOW();
+                """)
+                return [dict(r) for r in rows]
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                conn.row_factory = aiosqlite.Row
+                async with conn.execute("""
+                    SELECT * FROM auctions 
+                    WHERE status = 'active' AND datetime(end_time) <= datetime(?);
+                """, (now_str,)) as cursor:
+                    rows = await cursor.fetchall()
+                    return [dict(r) for r in rows]
+
+    async def finish_auction(self, auction_id: int) -> Optional[Dict[str, Any]]:
+        """Auksionni yakunlash (finished)"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                await conn.execute("UPDATE auctions SET status = 'finished' WHERE id = $1;", auction_id)
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                await conn.execute("UPDATE auctions SET status = 'finished' WHERE id = ?;", (auction_id,))
+                await conn.commit()
+        return await self.get_auction_by_id(auction_id)
+
+    async def get_user_auctions(self, user_id: int) -> List[Dict[str, Any]]:
+        """Foydalanuvchining o'z auksionlari"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT * FROM auctions 
+                    WHERE user_id = $1 
+                    ORDER BY id DESC;
+                """, user_id)
+                return [dict(r) for r in rows]
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                conn.row_factory = aiosqlite.Row
+                async with conn.execute("""
+                    SELECT * FROM auctions 
+                    WHERE user_id = ? 
+                    ORDER BY id DESC;
+                """, (user_id,)) as cursor:
+                    rows = await cursor.fetchall()
+                    return [dict(r) for r in rows]
 
 # Global DB instance
 db = Database()

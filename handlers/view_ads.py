@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 
 from database import db
 from keyboards import (
+    get_two_ads_navigation_kb, get_single_ad_contact_kb, 
     get_ad_navigation_kb, get_brands_inline_kb, 
     get_models_inline_kb, get_regions_inline_kb
 )
@@ -12,10 +13,47 @@ from utils import format_ad_caption
 
 router = Router()
 
-# Global view filter cache or state
+# Foydalanuvchilarning filtrlari va oxirgi yuborilgan xabar ID lari
 user_filters = {}
+user_ad_messages = {}  # {user_id: [msg_id_1, msg_id_2, ...]}
 
-async def show_ad_page(message_or_call, user_id: int, page_index: int = 0, is_edit: bool = False):
+PAGE_SIZE = 2
+
+async def clear_previous_ad_messages(bot, chat_id: int, user_id: int):
+    """Oldingi sahifadagi xabarlarni tozalash (ekranni toza saqlash uchun)"""
+    msg_ids = user_ad_messages.get(user_id, [])
+    for m_id in msg_ids:
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=m_id)
+        except Exception:
+            pass
+    user_ad_messages[user_id] = []
+
+async def safe_send_ad(bot, chat_id: int, photo_id: str, caption: str, reply_markup):
+    """Rasmli e'lonni xavfsiz yuborish, agar rasm yuborishda xatolik bo'lsa matn yuborish"""
+    try:
+        if photo_id and photo_id not in ("default", "test_photo_id"):
+            return await bot.send_photo(
+                chat_id=chat_id,
+                photo=photo_id,
+                caption=caption,
+                reply_markup=reply_markup
+            )
+    except Exception:
+        pass
+    
+    return await bot.send_message(
+        chat_id=chat_id,
+        text=caption,
+        reply_markup=reply_markup
+    )
+
+async def show_ad_page(event, user_id: int, page_index: int = 0, is_edit: bool = False):
+    """E'lonlar sahifasini 2 tadan qilib chiqarish"""
+    bot = event.bot
+    chat_id = event.from_user.id if isinstance(event, CallbackQuery) else event.chat.id
+    message = event.message if isinstance(event, CallbackQuery) else event
+
     filt = user_filters.get(user_id, {})
     brand = filt.get("brand")
     model = filt.get("model")
@@ -24,53 +62,83 @@ async def show_ad_page(message_or_call, user_id: int, page_index: int = 0, is_ed
     total_count = await db.get_active_ads_count(brand=brand, model=model, region=region)
     
     if total_count == 0:
-        text = "🛍 <b>Ayni paytda ushbu parametrlar bo'yicha faol e'lonlar mavjud emas.</b>\n\nBirozdan so'ng qayta tekshirib ko'ring yoki boshqa brendni tanlang."
-        if is_edit:
-            try:
-                await message_or_call.message.delete()
-            except Exception:
-                pass
-            await message_or_call.message.answer(text)
-        else:
-            await message_or_call.answer(text)
+        filter_desc = []
+        if brand: filter_desc.append(f"Brend: <b>{brand}</b>")
+        if model: filter_desc.append(f"Model: <b>{model}</b>")
+        if region: filter_desc.append(f"Viloyat: <b>{region}</b>")
+        filter_text = f" ({', '.join(filter_desc)})" if filter_desc else ""
+
+        text = (
+            f"🛍 <b>Ayni paytda faol e'lonlar mavjud emas{filter_text}.</b>\n\n"
+            f"Birozdan so'ng qayta tekshirib ko'ring yoki boshqa brend / modelni tanlang."
+        )
+        await clear_previous_ad_messages(bot, chat_id, user_id)
+        try:
+            if isinstance(event, CallbackQuery):
+                await message.delete()
+        except Exception:
+            pass
+        msg = await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=get_brands_inline_kb(for_filter=True)
+        )
+        user_ad_messages[user_id] = [msg.message_id]
         return
 
-    if page_index >= total_count:
-        page_index = total_count - 1
+    total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE
+
+    if page_index >= total_pages:
+        page_index = total_pages - 1
     if page_index < 0:
         page_index = 0
 
-    ads = await db.get_active_ads(brand=brand, model=model, region=region, limit=1, offset=page_index)
+    offset = page_index * PAGE_SIZE
+    ads = await db.get_active_ads(brand=brand, model=model, region=region, limit=PAGE_SIZE, offset=offset)
     if not ads:
         return
 
-    ad = ads[0]
-    caption = format_ad_caption(ad, is_preview=False)
-    kb = get_ad_navigation_kb(
-        ad_id=ad["id"],
-        current_index=page_index,
-        total_count=total_count,
-        seller_username=ad.get("contact_username", ""),
-        seller_phone=ad.get("contact_phone", "")
-    )
+    # Oldingi xabarlarni tozalaymiz
+    await clear_previous_ad_messages(bot, chat_id, user_id)
+    try:
+        if isinstance(event, CallbackQuery):
+            await message.delete()
+    except Exception:
+        pass
 
-    if is_edit:
-        try:
-            media = InputMediaPhoto(media=ad["photo_id"], caption=caption)
-            await message_or_call.message.edit_media(media=media, reply_markup=kb)
-        except Exception:
-            await message_or_call.message.delete()
-            await message_or_call.message.answer_photo(
-                photo=ad["photo_id"],
-                caption=caption,
-                reply_markup=kb
-            )
-    else:
-        await message_or_call.answer_photo(
-            photo=ad["photo_id"],
-            caption=caption,
-            reply_markup=kb
+    sent_msg_ids = []
+
+    if len(ads) == 1:
+        # 1 ta e'lon bo'lsa
+        ad = ads[0]
+        caption = f"📱 <b>[{total_count}/{total_count}] E'lon</b>\n\n" + format_ad_caption(ad, is_preview=False)
+        kb = get_ad_navigation_kb(
+            ad_id=ad["id"],
+            current_index=page_index,
+            total_count=total_pages,
+            seller_username=ad.get("contact_username", ""),
+            seller_phone=ad.get("contact_phone", "")
         )
+        msg = await safe_send_ad(bot, chat_id, ad["photo_id"], caption, kb)
+        sent_msg_ids.append(msg.message_id)
+    else:
+        # 2 ta e'lon bo'lsa
+        ad1, ad2 = ads[0], ads[1]
+        ad1_idx = offset + 1
+        ad2_idx = offset + 2
+
+        caption1 = f"📱 <b>[{ad1_idx}/{total_count}] 1-TELEFON:</b>\n\n" + format_ad_caption(ad1, is_preview=False)
+        caption2 = f"📱 <b>[{ad2_idx}/{total_count}] 2-TELEFON:</b>\n\n" + format_ad_caption(ad2, is_preview=False)
+
+        kb1 = get_single_ad_contact_kb(ad1)
+        msg1 = await safe_send_ad(bot, chat_id, ad1["photo_id"], caption1, kb1)
+        sent_msg_ids.append(msg1.message_id)
+
+        kb2 = get_two_ads_navigation_kb(ad2, current_page=page_index, total_pages=total_pages, total_count=total_count)
+        msg2 = await safe_send_ad(bot, chat_id, ad2["photo_id"], caption2, kb2)
+        sent_msg_ids.append(msg2.message_id)
+
+    user_ad_messages[user_id] = sent_msg_ids
 
 @router.message(F.text == "🛍 Telefonlar bozori (E'lonlar)")
 @router.message(Command("market"))
@@ -99,11 +167,17 @@ async def process_show_phone(call: CallbackQuery):
 # Filter by Brand
 @router.callback_query(F.data == "filter_by_brand")
 async def choose_filter_brand(call: CallbackQuery):
-    await call.message.delete()
-    await call.message.answer(
+    user_id = call.from_user.id
+    await clear_previous_ad_messages(call.bot, call.message.chat.id, user_id)
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+    msg = await call.message.answer(
         "🔍 <b>Qaysi brend bo'yicha qidirmoqchisiz?</b>",
         reply_markup=get_brands_inline_kb(for_filter=True)
     )
+    user_ad_messages[user_id] = [msg.message_id]
     await call.answer()
 
 @router.callback_query(F.data.startswith("filter_brand:"))
@@ -116,7 +190,6 @@ async def process_filter_brand(call: CallbackQuery):
     if brand == "all":
         user_filters[user_id].pop("brand", None)
         user_filters[user_id].pop("model", None)
-        await call.message.delete()
         await show_ad_page(call, user_id=user_id, page_index=0, is_edit=False)
     else:
         user_filters[user_id]["brand"] = brand
@@ -158,18 +231,23 @@ async def process_filter_model(call: CallbackQuery):
     else:
         user_filters[user_id]["model"] = model
 
-    await call.message.delete()
     await show_ad_page(call, user_id=user_id, page_index=0, is_edit=False)
     await call.answer()
 
 # Filter by Region
 @router.callback_query(F.data == "filter_by_region")
 async def choose_filter_region(call: CallbackQuery):
-    await call.message.delete()
-    await call.message.answer(
+    user_id = call.from_user.id
+    await clear_previous_ad_messages(call.bot, call.message.chat.id, user_id)
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+    msg = await call.message.answer(
         "📍 <b>Qaysi viloyat / shahar bo'yicha qidirmoqchisiz?</b>",
         reply_markup=get_regions_inline_kb(for_filter=True)
     )
+    user_ad_messages[user_id] = [msg.message_id]
     await call.answer()
 
 @router.callback_query(F.data.startswith("filter_reg:"))
@@ -184,10 +262,10 @@ async def process_filter_region(call: CallbackQuery):
     else:
         user_filters[user_id]["region"] = region
 
-    await call.message.delete()
     await show_ad_page(call, user_id=user_id, page_index=0, is_edit=False)
     await call.answer()
 
 @router.callback_query(F.data == "ignore")
 async def process_ignore(call: CallbackQuery):
     await call.answer()
+

@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from database.phone_data import PHONE_BRANDS, PHONE_MODELS, PHONE_MEMORY_OPTIONS, PHONE_CONDITIONS, UZBEKISTAN_REGIONS
 import config
 
@@ -83,7 +83,7 @@ def get_regions_inline_kb(for_filter: bool = False) -> InlineKeyboardMarkup:
     """Viloyatlarni tanlash"""
     keyboard = []
     if for_filter:
-        keyboard.append([InlineKeyboardButton(text="🌐 Barcha viloyatlar", callback_data="filter_region:all")])
+        keyboard.append([InlineKeyboardButton(text="🌐 Barcha viloyatlar", callback_data="filter_reg:all")])
 
     row = []
     for reg in UZBEKISTAN_REGIONS:
@@ -107,8 +107,62 @@ def get_confirm_ad_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_action")]
     ])
 
+def get_single_ad_contact_kb(ad: dict) -> InlineKeyboardMarkup:
+    """1-telefon uchun shaxsiy aloqa tugmalari"""
+    keyboard = []
+    contact_row = []
+    username = ad.get("contact_username", "")
+    if username:
+        clean_user = username.replace("@", "")
+        contact_row.append(InlineKeyboardButton(text="✈️ Telegramda yozish", url=f"https://t.me/{clean_user}"))
+    
+    phone = ad.get("contact_phone", "")
+    if phone:
+        contact_row.append(InlineKeyboardButton(text="📞 Telefon raqami", callback_data=f"show_phone:{ad['id']}"))
+
+    if contact_row:
+        keyboard.append(contact_row)
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_two_ads_navigation_kb(ad: dict, current_page: int, total_pages: int, total_count: int) -> InlineKeyboardMarkup:
+    """2-telefon uchun shaxsiy aloqa tugmalari va navigatsiya paneli"""
+    keyboard = []
+    
+    # 2-telefonning o'zining aloqa tugmalari
+    contact_row = []
+    username = ad.get("contact_username", "")
+    if username:
+        clean_user = username.replace("@", "")
+        contact_row.append(InlineKeyboardButton(text="✈️ Telegramda yozish", url=f"https://t.me/{clean_user}"))
+    
+    phone = ad.get("contact_phone", "")
+    if phone:
+        contact_row.append(InlineKeyboardButton(text="📞 Telefon raqami", callback_data=f"show_phone:{ad['id']}"))
+
+    if contact_row:
+        keyboard.append(contact_row)
+
+    # Navigatsiya (Oldingi / Keyingi sahifa)
+    nav_row = []
+    if current_page > 0:
+        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"view_nav:{current_page - 1}"))
+    nav_row.append(InlineKeyboardButton(text=f"📄 {current_page + 1}/{total_pages} (jami {total_count})", callback_data="ignore"))
+    if current_page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"view_nav:{current_page + 1}"))
+    
+    if nav_row:
+        keyboard.append(nav_row)
+
+    keyboard.append([
+        InlineKeyboardButton(text="🔍 Brend bo'yicha filter", callback_data="filter_by_brand"),
+        InlineKeyboardButton(text="📍 Hudud bo'yicha", callback_data="filter_by_region")
+    ])
+    keyboard.append([InlineKeyboardButton(text="🌐 Mobil Ilovada ko'rish (Web App)", web_app=WebAppInfo(url=config.WEBAPP_URL))])
+    keyboard.append([InlineKeyboardButton(text="❌ Yopish", callback_data="close_view")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
 def get_ad_navigation_kb(ad_id: int, current_index: int, total_count: int, seller_username: str, seller_phone: str) -> InlineKeyboardMarkup:
-    """Bozor e'lonlarini ko'rish va aloqa tugmalari"""
+    """Bozor e'lonlarini ko'rish va aloqa tugmalari (bitta e'lon uchun fallback)"""
     keyboard = []
     
     # Aloqa tugmalari
@@ -135,6 +189,92 @@ def get_ad_navigation_kb(ad_id: int, current_index: int, total_count: int, selle
         InlineKeyboardButton(text="🔍 Brend bo'yicha filter", callback_data="filter_by_brand"),
         InlineKeyboardButton(text="📍 Hudud bo'yicha", callback_data="filter_by_region")
     ])
+    keyboard.append([InlineKeyboardButton(text="❌ Yopish", callback_data="close_view")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+# ==================== AUCTION KEYBOARDS ====================
+
+def get_auction_min_steps_kb() -> InlineKeyboardMarkup:
+    """Auksion minimal stavka qadami tanlash"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="+20 000 so'm", callback_data="auc_step:20000"),
+            InlineKeyboardButton(text="+50 000 so'm", callback_data="auc_step:50000")
+        ],
+        [
+            InlineKeyboardButton(text="+100 000 so'm", callback_data="auc_step:100000"),
+            InlineKeyboardButton(text="+200 000 so'm", callback_data="auc_step:200000")
+        ],
+        [InlineKeyboardButton(text="✍️ O'zim kiritaman", callback_data="auc_step:custom")],
+        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_action")]
+    ])
+
+def get_auction_duration_kb() -> InlineKeyboardMarkup:
+    """Auksion davomiyligini tanlash"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⏱ 6 soat", callback_data="auc_dur:6"),
+            InlineKeyboardButton(text="⏱ 12 soat", callback_data="auc_dur:12")
+        ],
+        [
+            InlineKeyboardButton(text="⏱ 24 soat (1 kun)", callback_data="auc_dur:24"),
+            InlineKeyboardButton(text="⏱ 2 kun", callback_data="auc_dur:48")
+        ],
+        [InlineKeyboardButton(text="⏱ 3 kun", callback_data="auc_dur:72")],
+        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_action")]
+    ])
+
+def get_confirm_auction_kb() -> InlineKeyboardMarkup:
+    """Auksionni tasdiqlash"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Auksionni boshlash", callback_data="confirm_auction_start")],
+        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_action")]
+    ])
+
+def get_auction_navigation_kb(auction: dict, current_index: int, total_count: int, viewer_id: int) -> InlineKeyboardMarkup:
+    """Auksion kartasi va stavka berish tugmalari"""
+    keyboard = []
+    auc_id = auction["id"]
+    min_step = auction.get("min_step", 50000)
+    curr_price = auction["current_price"]
+    curr_winner = auction.get("current_winner_id")
+    
+    # Agar hali hech kim stavka qo'ymagan bo'lsa
+    next_min_bid = curr_price if not curr_winner else curr_price + min_step
+    
+    is_owner = (auction["user_id"] == viewer_id)
+    
+    # Stavka berish tugmalari (agar o'zining auksioni bo'lmasa)
+    if not is_owner:
+        bid_step_1 = next_min_bid
+        bid_step_2 = next_min_bid + min_step
+        keyboard.append([
+            InlineKeyboardButton(text=f"💰 Stavka: {bid_step_1:,} so'm", callback_data=f"bid_quick:{auc_id}:{bid_step_1}"),
+            InlineKeyboardButton(text=f"🔥 {bid_step_2:,} so'm", callback_data=f"bid_quick:{auc_id}:{bid_step_2}")
+        ])
+        keyboard.append([
+            InlineKeyboardButton(text="✍️ O'z summani kiritish", callback_data=f"bid_custom:{auc_id}")
+        ])
+    else:
+        keyboard.append([
+            InlineKeyboardButton(text="👑 Bu sizning auksioningiz", callback_data="ignore")
+        ])
+        
+    keyboard.append([
+        InlineKeyboardButton(text="📜 Stavkalar tarixi", callback_data=f"auc_history:{auc_id}")
+    ])
+
+    # Navigatsiya
+    nav_row = []
+    if current_index > 0:
+        nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"auc_nav:{current_index - 1}"))
+    nav_row.append(InlineKeyboardButton(text=f"🔨 {current_index + 1}/{total_count}", callback_data="ignore"))
+    if current_index < total_count - 1:
+        nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"auc_nav:{current_index + 1}"))
+
+    if nav_row:
+        keyboard.append(nav_row)
+
     keyboard.append([InlineKeyboardButton(text="❌ Yopish", callback_data="close_view")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
