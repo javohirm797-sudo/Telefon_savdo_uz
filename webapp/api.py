@@ -82,17 +82,16 @@ async def api_get_photo(request):
         if photo_id in photo_url_cache:
             file_url = photo_url_cache[photo_id]
         else:
-            file_info = await bot.get_file(photo_id)
+            file_info = await asyncio.wait_for(bot.get_file(photo_id), timeout=3.0)
             file_url = f"https://api.telegram.org/file/bot{config.BOT_TOKEN}/{file_info.file_path}"
             photo_url_cache[photo_id] = file_url
 
         # 3. Rasmni yuklash
         session = await get_shared_session()
-        async with session.get(file_url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+        async with session.get(file_url, timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
             if resp.status == 200:
                 content = await resp.read()
-                # Keshlash (faqat 100 tagacha so'nggi rasmlarni saqlaymiz)
-                if len(photo_bytes_cache) < 150:
+                if len(photo_bytes_cache) < 200:
                     photo_bytes_cache[photo_id] = content
                 return web.Response(
                     body=content,
@@ -100,7 +99,7 @@ async def api_get_photo(request):
                     headers={"Cache-Control": "public, max-age=604800, immutable"}
                 )
     except Exception as e:
-        logger.warning(f"Rasm yuklashda xatolik ({photo_id}): {e}")
+        logger.warning(f"Tezkor fallback rasm ({photo_id}): {e}")
 
     # Xato bo'lsa darhol placeholder rasm
     placeholder = os.path.join(os.path.dirname(__file__), "banner.jpg")

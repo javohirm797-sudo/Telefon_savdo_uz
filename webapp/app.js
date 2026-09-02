@@ -102,18 +102,22 @@ async function loadAds() {
   const adsGrid = document.getElementById('adsGrid');
   const countBadge = document.getElementById('adsCount');
 
-  if (spinner) spinner.style.display = 'block';
-  if (emptyState) emptyState.style.display = 'none';
+  // Zagruzka spinneri hech qachon 2.5 soniyadan ortiq aylanmaydi (qotib qolishni yo'qotadi)
+  const forceHideSpinner = setTimeout(() => {
+    if (spinner) spinner.style.display = 'none';
+  }, 2500);
 
   try {
     const res = await fetch('/api/ads');
     allAds = await res.json();
+    clearTimeout(forceHideSpinner);
     if (spinner) spinner.style.display = 'none';
     applyFilters();
   } catch (err) {
     console.error('E\'lonlarni yuklashda xatolik:', err);
+    clearTimeout(forceHideSpinner);
     if (spinner) spinner.style.display = 'none';
-    if (countBadge) countBadge.textContent = 'Xatolik yuz berdi';
+    if (countBadge) countBadge.textContent = 'Qayta urinib ko\'ring';
   }
 }
 
