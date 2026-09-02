@@ -5,7 +5,8 @@ from aiogram.fsm.context import FSMContext
 
 from database import db
 from keyboards import (
-    get_two_ads_navigation_kb, get_brands_inline_kb, 
+    get_two_ads_navigation_kb, get_single_ad_contact_kb, 
+    get_ad_navigation_kb, get_brands_inline_kb, 
     get_models_inline_kb, get_regions_inline_kb
 )
 from utils import format_ad_caption
