@@ -152,13 +152,13 @@ function applyFilters() {
 function renderAdCard(ad) {
   const isVip = ad.is_vip ? 'vip' : '';
   const vipBadge = ad.is_vip ? '<span class="card-vip-badge">⭐️ VIP</span>' : '';
-  const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}` : '/static/no-photo.png';
+  const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}` : '';
   const title = `${ad.brand || ''} ${ad.model || ''}`;
 
   return `
     <div class="ad-card ${isVip}" onclick="openAdModal(${ad.id})">
       <div class="ad-thumb-wrap">
-        <img class="ad-thumb" src="${photoUrl}" alt="${title}" loading="lazy" onerror="this.src='/static/banner.jpg'">
+        <img class="ad-thumb" src="${photoUrl}" alt="${title}" loading="lazy">
         ${vipBadge}
       </div>
       <div class="card-info">
@@ -204,7 +204,7 @@ function openAdModal(adId) {
   const ad = allAds.find(a => a.id === adId);
   if (!ad) return;
 
-  const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}` : '/static/banner.jpg';
+  const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}` : '';
   document.getElementById('modalImg').src = photoUrl;
   document.getElementById('modalTitle').textContent = `${ad.brand} ${ad.model}`;
   document.getElementById('modalPrice').textContent = ad.price;
@@ -294,7 +294,7 @@ function onRegionChange(region) {
 }
 
 function renderAuctionCard(auc) {
-  const photoUrl = auc.photo_id ? `/api/photo/${auc.photo_id}` : '/static/banner.jpg';
+  const photoUrl = auc.photo_id ? `/api/photo/${auc.photo_id}` : '';
   const title = `${auc.brand} ${auc.model}`;
   const currPrice = (auc.current_price || auc.start_price || 0).toLocaleString();
   const minStep = (auc.min_step || 50000).toLocaleString();

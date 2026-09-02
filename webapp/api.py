@@ -59,53 +59,45 @@ async def api_get_auctions(request):
     return web.json_response(clean_auc)
 
 async def api_get_photo(request):
-    """Telegram photo_id bo'yicha rasmni olib beruvchi tezkor proxy (in-memory kesh bilan)"""
+    """Telegram photo_id bo'yicha e'lonning haqiqiy rasmini olib beruvchi proxy"""
     photo_id = request.match_info.get("photo_id")
     bot = request.app.get("bot")
 
     if not photo_id or photo_id in ("default", "test_photo_id"):
-        placeholder = os.path.join(os.path.dirname(__file__), "banner.jpg")
-        if os.path.exists(placeholder):
-            return web.FileResponse(placeholder, headers={"Cache-Control": "public, max-age=604800"})
         return web.Response(status=404, text="Photo not found")
 
-    # 1. Tezkor xotira keshi (RAM) — 0 soniyada beradi!
+    # Keshda bo'lsa darhol beramiz
     if photo_id in photo_bytes_cache:
         return web.Response(
             body=photo_bytes_cache[photo_id],
             content_type="image/jpeg",
-            headers={"Cache-Control": "public, max-age=604800, immutable"}
+            headers={"Cache-Control": "public, max-age=604800"}
         )
 
     try:
-        # 2. URL ni olish
+        # 1. Telegram fayl URL ini olish
         if photo_id in photo_url_cache:
             file_url = photo_url_cache[photo_id]
         else:
-            file_info = await asyncio.wait_for(bot.get_file(photo_id), timeout=3.0)
+            file_info = await bot.get_file(photo_id)
             file_url = f"https://api.telegram.org/file/bot{config.BOT_TOKEN}/{file_info.file_path}"
             photo_url_cache[photo_id] = file_url
 
-        # 3. Rasmni yuklash
+        # 2. Asl rasmni Telegramdan yuklash
         session = await get_shared_session()
-        async with session.get(file_url, timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
+        async with session.get(file_url) as resp:
             if resp.status == 200:
                 content = await resp.read()
-                if len(photo_bytes_cache) < 200:
-                    photo_bytes_cache[photo_id] = content
+                photo_bytes_cache[photo_id] = content
                 return web.Response(
                     body=content,
                     content_type="image/jpeg",
-                    headers={"Cache-Control": "public, max-age=604800, immutable"}
+                    headers={"Cache-Control": "public, max-age=604800"}
                 )
+            return web.Response(status=404)
     except Exception as e:
-        logger.warning(f"Tezkor fallback rasm ({photo_id}): {e}")
-
-    # Xato bo'lsa darhol placeholder rasm
-    placeholder = os.path.join(os.path.dirname(__file__), "banner.jpg")
-    if os.path.exists(placeholder):
-        return web.FileResponse(placeholder, headers={"Cache-Control": "public, max-age=86400"})
-    return web.Response(status=404)
+        logger.warning(f"Rasm yuklashda xatolik ({photo_id}): {e}")
+        return web.Response(status=404)
 
 async def api_place_bid(request):
     """Web App orqali auksionga stavka berish"""
