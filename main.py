@@ -2,7 +2,20 @@ import asyncio
 import logging
 import sys
 import ssl
+import os
+from aiohttp import web
 
+async def ping(request):
+    return web.Response(text="Bot is running!")
+
+async def start_dummy_server():
+    app = web.Application()
+    app.router.add_get("/", ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
 # Windows console UTF-8 sozlamasi
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -98,6 +111,7 @@ async def main():
     print("=======================================================\n")
 
     # Pollingni boshlash
+    await start_dummy_server()
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
