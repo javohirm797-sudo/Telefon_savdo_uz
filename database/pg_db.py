@@ -456,6 +456,24 @@ class Database:
                 await conn.execute("UPDATE ads SET status = ? WHERE id = ?;", (status, ad_id))
                 await conn.commit()
 
+    async def delete_user_ad(self, ad_id: int, user_id: int) -> bool:
+        """Foydalanuvchining o'z e'lonini o'chirish"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                res = await conn.execute(
+                    "UPDATE ads SET status = 'deleted' WHERE id = $1 AND user_id = $2;",
+                    ad_id, user_id
+                )
+                return "UPDATE 1" in res
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                cursor = await conn.execute(
+                    "UPDATE ads SET status = 'deleted' WHERE id = ? AND user_id = ?;",
+                    (ad_id, user_id)
+                )
+                await conn.commit()
+                return cursor.rowcount > 0
+
     async def set_ad_vip(self, ad_id: int, days: int):
         """E'lonni VIP qilish va muddatini belgilash"""
         vip_until = datetime.datetime.now() + datetime.timedelta(days=days)

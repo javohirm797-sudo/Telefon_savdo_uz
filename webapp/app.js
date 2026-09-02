@@ -458,6 +458,62 @@ function switchTab(tab) {
 
 // ==================== E'LON BERISH (FORM SUBMIT) ====================
 
+// ==================== RASM YUKLASH & SIQISH (COMPRESSION) ====================
+
+let selectedPhotoBase64 = null;
+
+function compressImage(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      const maxSide = 1024;
+      if (width > maxSide || height > maxSide) {
+        if (width > height) {
+          height = Math.round((height * maxSide) / width);
+          width = maxSide;
+        } else {
+          width = Math.round((width * maxSide) / height);
+          height = maxSide;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      callback(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function onPhotoSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  compressImage(file, function(base64) {
+    selectedPhotoBase64 = base64;
+    document.getElementById('postPhotoPreview').src = base64;
+    document.getElementById('photoUploadTrigger').style.display = 'none';
+    document.getElementById('postPhotoPreviewWrapper').style.display = 'block';
+  });
+}
+
+function removeSelectedPhoto() {
+  selectedPhotoBase64 = null;
+  const input = document.getElementById('postPhotoInput');
+  if (input) input.value = '';
+  const preview = document.getElementById('postPhotoPreviewWrapper');
+  const trigger = document.getElementById('photoUploadTrigger');
+  if (preview) preview.style.display = 'none';
+  if (trigger) trigger.style.display = 'flex';
+}
+
+// ==================== E'LON BERISH (FORM SUBMIT) ====================
+
 async function submitPostAd() {
   const brand = document.getElementById('postBrand').value;
   const model = document.getElementById('postModel').value.trim();
@@ -497,7 +553,7 @@ async function submitPostAd() {
     contact_phone: phone,
     contact_username: username,
     description: desc,
-    photo_id: 'default'
+    photo_base64: selectedPhotoBase64 || ''
   };
 
   try {
@@ -513,6 +569,7 @@ async function submitPostAd() {
       document.getElementById('postModel').value = '';
       document.getElementById('postPrice').value = '';
       document.getElementById('postDesc').value = '';
+      removeSelectedPhoto();
       switchBottomNav('home');
       loadAds();
     } else {
@@ -545,18 +602,143 @@ async function loadMyAds() {
     }
 
     listEl.innerHTML = myAds.map(ad => {
-      const isVip = ad.is_vip ? '⭐️ VIP' : 'Oddiy';
+      const isVipBadge = ad.is_vip ? '<span class="card-vip-badge">⭐️ VIP</span>' : '';
+      const adTitle = `${ad.brand} ${ad.model}`.replace(/'/g, "\\'");
       return `
-        <div class="info-card" style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <b>${ad.brand} ${ad.model}</b>
-            <div style="font-size:12px; color:var(--hint-color);">${ad.price} | ${isVip}</div>
+        <div class="my-ad-card">
+          <div class="my-ad-top">
+            <div>
+              <div class="my-ad-title">${ad.brand} ${ad.model}</div>
+              <div class="my-ad-meta">${ad.memory || ''} | ${ad.condition || ''} | ${ad.region || ''}</div>
+              <div class="my-ad-price">${ad.price}</div>
+            </div>
+            ${isVipBadge}
           </div>
-          <span style="font-size:12px; padding:4px 8px; border-radius:6px; background:rgba(52, 199, 89, 0.1); color:var(--success);">Faol</span>
+          <div class="my-ad-actions">
+            ${!ad.is_vip ? `<button type="button" class="btn-my-ad btn-vip-ad" onclick="openVipModal(${ad.id}, '${adTitle}')"><i class="fa-solid fa-crown"></i> VIP qilish</button>` : ''}
+            <button type="button" class="btn-my-ad btn-delete-ad" onclick="deleteMyAd(${ad.id})"><i class="fa-solid fa-trash-can"></i> O'chirish</button>
+          </div>
         </div>
       `;
     }).join('');
   } catch (e) {
     console.error('Mening e\'lonlarimni yuklashda xatolik:', e);
+  }
+}
+
+async function deleteMyAd(adId) {
+  if (!confirm("Haqiqatan ham ushbu e'lonni o'chirmoqchimisiz?")) return;
+  try {
+    const res = await fetch('/api/delete_ad', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ad_id: adId, user_id: currentUser.id })
+    });
+    const result = await res.json();
+    if (result.success) {
+      alert('✅ ' + result.message);
+      loadMyAds();
+      loadAds();
+    } else {
+      alert('❌ ' + result.message);
+    }
+  } catch (err) {
+    alert('Aloqa xatosi yuz berdi!');
+  }
+}
+
+// ==================== VIP MODAL VA TO'LOV LOGIKASI ====================
+
+let selectedVipAdId = null;
+let selectedVipPlanDays = 1;
+let selectedVipReceiptBase64 = null;
+
+function openVipModal(adId, title) {
+  selectedVipAdId = adId;
+  selectedVipPlanDays = 1;
+  selectedVipReceiptBase64 = null;
+  removeReceiptPhoto();
+  selectVipPlan(1, 2999);
+  document.getElementById('vipAdTitle').textContent = `E'lon: ${title}`;
+  document.getElementById('vipModal').classList.add('active');
+}
+
+function closeVipModal(e) {
+  if (e.target.id === 'vipModal') closeVipModalDirect();
+}
+
+function closeVipModalDirect() {
+  document.getElementById('vipModal').classList.remove('active');
+}
+
+function selectVipPlan(days, amount) {
+  selectedVipPlanDays = days;
+  document.querySelectorAll('.vip-plan-card').forEach(c => c.classList.remove('active'));
+  const el = document.getElementById(`plan${days}`);
+  if (el) el.classList.add('active');
+}
+
+function copyCardNumber() {
+  const cardNum = '5614681875921300';
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(cardNum).then(() => {
+      alert('✅ Karta raqami nusxalandi: 5614-6818-7592-1300');
+    }).catch(() => {
+      alert('Karta raqami: 5614-6818-7592-1300');
+    });
+  } else {
+    alert('Karta raqami: 5614-6818-7592-1300');
+  }
+}
+
+function onReceiptSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  compressImage(file, function(base64) {
+    selectedVipReceiptBase64 = base64;
+    document.getElementById('receiptPreviewImg').src = base64;
+    document.getElementById('receiptUploadTrigger').style.display = 'none';
+    document.getElementById('receiptPreviewWrap').style.display = 'block';
+  });
+}
+
+function removeReceiptPhoto() {
+  selectedVipReceiptBase64 = null;
+  const input = document.getElementById('vipReceiptInput');
+  if (input) input.value = '';
+  const preview = document.getElementById('receiptPreviewWrap');
+  const trigger = document.getElementById('receiptUploadTrigger');
+  if (preview) preview.style.display = 'none';
+  if (trigger) trigger.style.display = 'flex';
+}
+
+async function submitVipPayment() {
+  if (!selectedVipAdId) return;
+  if (!selectedVipReceiptBase64) {
+    alert('Iltimos, to\'lov cheki skrinshotini yuklang!');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/buy_vip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ad_id: selectedVipAdId,
+        user_id: currentUser.id,
+        plan_days: selectedVipPlanDays,
+        receipt_base64: selectedVipReceiptBase64
+      })
+    });
+    const result = await res.json();
+    if (result.success) {
+      alert('🎉 ' + result.message);
+      closeVipModalDirect();
+      loadMyAds();
+    } else {
+      alert('❌ Xatolik: ' + result.message);
+    }
+  } catch (err) {
+    alert('Aloqa xatosi yuz berdi!');
   }
 }

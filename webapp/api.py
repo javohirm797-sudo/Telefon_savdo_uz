@@ -148,8 +148,32 @@ async def api_place_bid(request):
         logger.error(f"api_place_bid xatosi: {e}")
         return web.json_response({"success": False, "message": str(e)})
 
+async def upload_base64_to_telegram(bot, base64_str: str, caption: str = "") -> str:
+    """Base64 rasmni dekod qilib Telegram bot orqali adminga yuborib, photo_id oladi"""
+    if not base64_str or len(base64_str) < 100:
+        return "default"
+    
+    try:
+        import base64
+        from aiogram.types import BufferedInputFile
+        if "," in base64_str:
+            base64_str = base64_str.split(",", 1)[1]
+        img_bytes = base64.b64decode(base64_str)
+        
+        target_chat = config.ADMIN_IDS[0] if config.ADMIN_IDS else None
+        if not target_chat or not bot:
+            return "default"
+            
+        file_input = BufferedInputFile(img_bytes, filename="phone.jpg")
+        sent_msg = await bot.send_photo(chat_id=target_chat, photo=file_input, caption=caption)
+        if sent_msg and sent_msg.photo:
+            return sent_msg.photo[-1].file_id
+    except Exception as e:
+        logger.error(f"Rasmni Telegramga yuklashda xatolik: {e}")
+    return "default"
+
 async def api_post_ad(request):
-    """Web App orqali yangi e'lon joylash"""
+    """Web App orqali yangi e'lon joylash (rasm bilan)"""
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
@@ -157,9 +181,18 @@ async def api_post_ad(request):
         model = str(data.get("model", ""))
         price = str(data.get("price", ""))
         phone = str(data.get("contact_phone", ""))
+        photo_base64 = data.get("photo_base64", "")
 
         if not model or not price or not phone:
             return web.json_response({"success": False, "message": "Barcha majburiy maydonlarni to'ldiring!"})
+
+        bot = request.app.get("bot")
+        photo_id = "default"
+        if photo_base64 and bot:
+            photo_id = await upload_base64_to_telegram(
+                bot, photo_base64, 
+                caption=f"📱 Yangi Web App e'loni: {brand} {model} ({price})\n📞 Telefon: {phone}"
+            )
 
         ad_data = {
             "user_id": user_id,
@@ -171,7 +204,7 @@ async def api_post_ad(request):
             "color": data.get("color", "—"),
             "price": price,
             "region": data.get("region", "Toshkent shahri"),
-            "photo_id": data.get("photo_id", "default"),
+            "photo_id": photo_id,
             "description": data.get("description", ""),
             "contact_phone": phone,
             "contact_username": data.get("contact_username", ""),
@@ -182,6 +215,90 @@ async def api_post_ad(request):
         return web.json_response({"success": True, "message": "E'lon muvaffaqiyatli joylandi!", "ad_id": ad_id})
     except Exception as e:
         logger.error(f"api_post_ad xatosi: {e}")
+        return web.json_response({"success": False, "message": str(e)})
+
+async def api_delete_ad(request):
+    """Web App profilidan shaxsiy e'lonni o'chirish"""
+    try:
+        data = await request.json()
+        ad_id = int(data.get("ad_id", 0))
+        user_id = int(data.get("user_id", 0))
+
+        if not ad_id or not user_id:
+            return web.json_response({"success": False, "message": "Ma'lumotlar yetarli emas!"})
+
+        deleted = await db.delete_user_ad(ad_id=ad_id, user_id=user_id)
+        if deleted:
+            return web.json_response({"success": True, "message": "E'lon muvaffaqiyatli o'chirildi!"})
+        else:
+            return web.json_response({"success": False, "message": "E'lon topilmadi yoki uni o'chirishga ruxsat yo'q!"})
+    except Exception as e:
+        logger.error(f"api_delete_ad xatosi: {e}")
+        return web.json_response({"success": False, "message": str(e)})
+
+async def api_buy_vip(request):
+    """Web App orqali e'longa VIP paket sotib olish so'rovi"""
+    try:
+        from keyboards import get_admin_verify_payment_kb
+        data = await request.json()
+        ad_id = int(data.get("ad_id", 0))
+        user_id = int(data.get("user_id", 0))
+        plan_days = int(data.get("plan_days", 1))
+        receipt_base64 = data.get("receipt_base64", "")
+
+        prices = {1: config.VIP_PRICE_1_DAY, 2: config.VIP_PRICE_2_DAYS, 3: config.VIP_PRICE_3_DAYS}
+        amount = prices.get(plan_days, config.VIP_PRICE_1_DAY)
+
+        bot = request.app.get("bot")
+        receipt_photo_id = "receipt"
+        if receipt_base64 and bot:
+            receipt_photo_id = await upload_base64_to_telegram(
+                bot, receipt_base64, 
+                caption=f"⭐️ VIP To'lov cheki (Web App)\n📱 E'lon ID: #{ad_id}\n📅 Reja: {plan_days} kun\n💰 Summa: {amount:,} so'm"
+            )
+
+        payment_id = await db.add_vip_payment(
+            ad_id=ad_id,
+            user_id=user_id,
+            plan_days=plan_days,
+            amount=amount,
+            receipt_photo_id=receipt_photo_id
+        )
+
+        if bot and config.ADMIN_IDS:
+            admin_caption = (
+                f"⭐️ <b>YANGI VIP TO'LOV SO'ROVI (Web App)!</b>\n\n"
+                f"🆔 To'lov ID: #{payment_id}\n"
+                f"📱 E'lon ID: #{ad_id}\n"
+                f"👤 Foydalanuvchi: {user_id}\n"
+                f"📅 Reja: <b>{plan_days} kun</b>\n"
+                f"💰 Summa: <b>{amount:,} so'm</b>\n\n"
+                f"To'lov chekini tekshirib tasdiqlang:"
+            )
+            for admin_id in config.ADMIN_IDS:
+                try:
+                    if receipt_photo_id and receipt_photo_id != "receipt":
+                        await bot.send_photo(
+                            chat_id=admin_id,
+                            photo=receipt_photo_id,
+                            caption=admin_caption,
+                            reply_markup=get_admin_verify_payment_kb(payment_id)
+                        )
+                    else:
+                        await bot.send_message(
+                            chat_id=admin_id,
+                            text=admin_caption,
+                            reply_markup=get_admin_verify_payment_kb(payment_id)
+                        )
+                except Exception as ex:
+                    logger.warning(f"Adminga VIP xabar yuborishda xatolik: {ex}")
+
+        return web.json_response({
+            "success": True, 
+            "message": "To'lov chekingiz adminga yuborildi! Tasdiqlangach, e'loningiz ro'yxatning eng yuqorisiga VIP bo'lib chiqadi!"
+        })
+    except Exception as e:
+        logger.error(f"api_buy_vip xatosi: {e}")
         return web.json_response({"success": False, "message": str(e)})
 
 async def api_get_my_ads(request):
@@ -230,6 +347,8 @@ def setup_webapp_routes(app: web.Application, bot):
     app.router.add_post("/api/bid", api_place_bid)
     app.router.add_post("/api/post_ad", api_post_ad)
     app.router.add_get("/api/my_ads", api_get_my_ads)
+    app.router.add_post("/api/delete_ad", api_delete_ad)
+    app.router.add_post("/api/buy_vip", api_buy_vip)
 
     # Static assets (css, js, images)
     static_dir = os.path.dirname(__file__)

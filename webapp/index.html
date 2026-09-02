@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="/static/style.css?v=5">
+  <link rel="stylesheet" href="/static/style.css?v=7">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
@@ -241,6 +241,25 @@
           <textarea id="postDesc" rows="3" placeholder="Karobka-dokument bormi, holati qanday..."></textarea>
         </div>
 
+        <!-- Rasm yuklash bloki -->
+        <div class="form-group">
+          <label>📷 Telefon rasmi</label>
+          <input type="file" id="postPhotoInput" accept="image/*" style="display: none;" onchange="onPhotoSelected(event)">
+          
+          <div id="photoUploadTrigger" class="photo-upload-box" onclick="document.getElementById('postPhotoInput').click()">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Galereyadan rasm tanlang</span>
+            <small>JPG, PNG formatida</small>
+          </div>
+
+          <div id="postPhotoPreviewWrapper" class="photo-preview-box" style="display: none;">
+            <img id="postPhotoPreview" src="" alt="Tanlangan rasm">
+            <button type="button" class="btn-remove-preview" onclick="removeSelectedPhoto()">
+              <i class="fa-solid fa-trash-can"></i> Boshqa rasm tanlash
+            </button>
+          </div>
+        </div>
+
         <button class="primary-submit-btn" onclick="submitPostAd()">
           <i class="fa-solid fa-paper-plane"></i> E'lonni chop etish
         </button>
@@ -384,6 +403,72 @@
       </div>
     </div>
 
+    <!-- VIP MODAL -->
+    <div class="modal-overlay" id="vipModal" onclick="closeVipModal(event)">
+      <div class="modal-card vip-modal-card" onclick="event.stopPropagation()">
+        <button class="close-modal-btn" onclick="closeVipModalDirect()">&times;</button>
+        <div class="modal-body">
+          <div class="vip-modal-header" style="text-align:center;">
+            <i class="fa-solid fa-crown" style="color: #ff9500; font-size: 26px;"></i>
+            <h3 style="margin-top: 6px;">⭐️ VIP Paket sotib olish</h3>
+          </div>
+          <p id="vipAdTitle" style="color: var(--hint-color); font-size: 13px; margin: 4px 0 16px; text-align: center;"></p>
+
+          <!-- VIP Tariflar -->
+          <div class="vip-plans-selector">
+            <div class="vip-plan-card active" id="plan1" onclick="selectVipPlan(1, 2999)">
+              <div class="plan-days">1 Kun</div>
+              <div class="plan-price">2 999 so'm</div>
+            </div>
+            <div class="vip-plan-card" id="plan2" onclick="selectVipPlan(2, 3999)">
+              <div class="plan-days">2 Kun</div>
+              <div class="plan-price">3 999 so'm</div>
+            </div>
+            <div class="vip-plan-card" id="plan3" onclick="selectVipPlan(3, 5999)">
+              <div class="plan-days">3 Kun</div>
+              <div class="plan-price">5 999 so'm</div>
+            </div>
+          </div>
+
+          <!-- To'lov karta ma'lumotlari -->
+          <div class="vip-card-box">
+            <div class="card-box-header">
+              <i class="fa-regular fa-credit-card"></i> <span>To'lov uchun karta:</span>
+            </div>
+            <div class="card-number-row">
+              <span id="vipCardNumber">5614-6818-7592-1300</span>
+              <button type="button" class="copy-card-btn" onclick="copyCardNumber()">
+                <i class="fa-regular fa-copy"></i> Nusxa
+              </button>
+            </div>
+            <div class="card-owner-name">MAVLONOV JAVOHIR</div>
+          </div>
+
+          <!-- Chek yuklash -->
+          <div class="form-group" style="margin-top: 14px;">
+            <label style="font-size: 13px; font-weight: 600;">🧾 To'lov cheki (skrinshotini yuklang):</label>
+            <input type="file" id="vipReceiptInput" accept="image/*" style="display: none;" onchange="onReceiptSelected(event)">
+            
+            <div id="receiptUploadTrigger" class="receipt-upload-box" onclick="document.getElementById('vipReceiptInput').click()">
+              <i class="fa-solid fa-file-arrow-up"></i>
+              <span>Chek rasmini tanlang</span>
+            </div>
+
+            <div id="receiptPreviewWrap" class="receipt-preview-box" style="display: none;">
+              <img id="receiptPreviewImg" src="" alt="Chek rasmi">
+              <button type="button" class="btn-remove-preview" onclick="removeReceiptPhoto()">
+                <i class="fa-solid fa-xmark"></i> O'chirish
+              </button>
+            </div>
+          </div>
+
+          <button class="primary-submit-btn vip-submit-btn" onclick="submitVipPayment()">
+            <i class="fa-solid fa-paper-plane"></i> To'lovni tasdiqlashga yuborish
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- PASTKI NAVIGATSIYA (BOTTOM NAVIGATION BAR) -->
     <nav class="bottom-nav">
       <!-- 1. Chap tomonda: Domiklik tugma (E'lonlar / Bosh sahifa) -->
@@ -420,6 +505,6 @@
     </nav>
   </div>
 
-  <script src="/static/app.js?v=6"></script>
+  <script src="/static/app.js?v=7"></script>
 </body>
 </html>

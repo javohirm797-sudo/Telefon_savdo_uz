@@ -941,3 +941,241 @@ body {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ==================== PHOTO UPLOAD & PREVIEW ==================== */
+.photo-upload-box, .receipt-upload-box {
+  border: 2px dashed rgba(0, 122, 255, 0.4);
+  background: rgba(0, 122, 255, 0.04);
+  border-radius: 14px;
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.photo-upload-box:active, .receipt-upload-box:active {
+  background: rgba(0, 122, 255, 0.1);
+  transform: scale(0.98);
+}
+
+.photo-upload-box i, .receipt-upload-box i {
+  font-size: 32px;
+  color: var(--primary-accent);
+}
+
+.photo-upload-box span, .receipt-upload-box span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.photo-upload-box small {
+  font-size: 11px;
+  color: var(--hint-color);
+}
+
+.photo-preview-box, .receipt-preview-box {
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  text-align: center;
+  padding: 10px;
+}
+
+.photo-preview-box img, .receipt-preview-box img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #000;
+}
+
+.btn-remove-preview {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--danger);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==================== PROFIL: MENING E'LONLARIM ==================== */
+.my-ad-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.my-ad-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.my-ad-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.my-ad-meta {
+  font-size: 13px;
+  color: var(--hint-color);
+  margin-top: 2px;
+}
+
+.my-ad-price {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary-accent);
+  margin-top: 4px;
+}
+
+.my-ad-actions {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  padding-top: 10px;
+}
+
+.btn-my-ad {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.2s;
+}
+
+.btn-my-ad:active {
+  opacity: 0.8;
+}
+
+.btn-vip-ad {
+  background: linear-gradient(135deg, #ff9500 0%, #ff5e3a 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
+}
+
+.btn-delete-ad {
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--danger);
+}
+
+/* ==================== VIP MODAL ==================== */
+.vip-modal-card {
+  max-width: 420px;
+}
+
+.vip-plans-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.vip-plan-card {
+  flex: 1;
+  padding: 12px 6px;
+  border-radius: 12px;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  background: rgba(120, 120, 128, 0.04);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vip-plan-card.active {
+  border-color: #ff9500;
+  background: rgba(255, 149, 0, 0.1);
+}
+
+.plan-days {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-color);
+}
+
+.plan-price {
+  font-size: 11px;
+  color: #ff9500;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.vip-card-box {
+  background: rgba(0, 122, 255, 0.05);
+  border: 1px dashed rgba(0, 122, 255, 0.3);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.card-box-header {
+  font-size: 12px;
+  color: var(--hint-color);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.card-number-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-number-row span {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--primary-accent);
+}
+
+.copy-card-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--primary-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-owner-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-color);
+  margin-top: 4px;
+}
+
+.vip-submit-btn {
+  background: linear-gradient(135deg, #ff9500 0%, #ff5e3a 100%) !important;
+  color: #fff !important;
+  margin-top: 14px !important;
+}
