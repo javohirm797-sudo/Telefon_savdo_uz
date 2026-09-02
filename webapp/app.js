@@ -1,8 +1,12 @@
 // Telegram Web App SDK
 const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
+try {
+  if (tg) {
+    tg.ready();
+    tg.expand();
+  }
+} catch (e) {
+  console.warn("Telegram SDK xatosi:", e);
 }
 
 let allAds = [];
@@ -23,16 +27,20 @@ const currentUser = tg?.initDataUnsafe?.user || {
 
 // Ism va ID ni o'rnatish
 document.addEventListener('DOMContentLoaded', () => {
-  const userNameEl = document.getElementById('userName');
-  const profileNameEl = document.getElementById('profileName');
-  const profileIdEl = document.getElementById('profileId');
-  const postPhone = document.getElementById('postPhone');
-  const postUsername = document.getElementById('postUsername');
+  try {
+    const userNameEl = document.getElementById('userName');
+    const profileNameEl = document.getElementById('profileName');
+    const profileIdEl = document.getElementById('profileId');
+    const postPhone = document.getElementById('postPhone');
+    const postUsername = document.getElementById('postUsername');
 
-  if (userNameEl) userNameEl.textContent = currentUser.first_name || 'Profil';
-  if (profileNameEl) profileNameEl.textContent = currentUser.first_name || 'Foydalanuvchi';
-  if (profileIdEl) profileIdEl.textContent = `ID: ${currentUser.id}`;
-  if (postUsername && currentUser.username) postUsername.value = `@${currentUser.username}`;
+    if (userNameEl) userNameEl.textContent = currentUser.first_name || 'Profil';
+    if (profileNameEl) profileNameEl.textContent = currentUser.first_name || 'Foydalanuvchi';
+    if (profileIdEl) profileIdEl.textContent = `ID: ${currentUser.id}`;
+    if (postUsername && currentUser.username) postUsername.value = `@${currentUser.username}`;
+  } catch (err) {
+    console.error("DOM xatosi:", err);
+  }
 
   loadAds();
   loadAuctions();
