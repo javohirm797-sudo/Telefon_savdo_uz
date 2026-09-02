@@ -308,9 +308,11 @@ def get_admin_verify_payment_kb(payment_id: int, ad_id: int, plan_days: int) -> 
         ]
     ])
 
-def get_admin_panel_kb() -> InlineKeyboardMarkup:
+def get_admin_panel_kb(pending_vip_count: int = 0) -> InlineKeyboardMarkup:
     """Maxfiy Admin Panel tugmalari"""
+    vip_label = f"⭐️ Kutilayotgan VIP to'lovlar ({pending_vip_count} ta)" if pending_vip_count > 0 else "⭐️ Kutilayotgan VIP to'lovlar"
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=vip_label, callback_data="adm_pending_vip")],
         [InlineKeyboardButton(text="📊 To'liq Statistika", callback_data="adm_stats")],
         [InlineKeyboardButton(text="📢 Barcha foydalanuvchilarga xabar (Broadcast)", callback_data="adm_broadcast")],
         [InlineKeyboardButton(text="🔄 Yangilash", callback_data="adm_refresh")]

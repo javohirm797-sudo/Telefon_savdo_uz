@@ -546,6 +546,31 @@ class Database:
                 """, (status, now.isoformat(), payment_id))
                 await conn.commit()
 
+    async def get_pending_vip_payments(self) -> List[Dict[str, Any]]:
+        """Kutilayotgan barcha VIP to'lov so'rovlarini olish"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT p.*, a.brand, a.model, a.price 
+                    FROM vip_payments p
+                    LEFT JOIN ads a ON p.ad_id = a.id
+                    WHERE p.status = 'pending'
+                    ORDER BY p.id ASC;
+                """)
+                return [dict(r) for r in rows]
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                conn.row_factory = aiosqlite.Row
+                async with conn.execute("""
+                    SELECT p.*, a.brand, a.model, a.price 
+                    FROM vip_payments p
+                    LEFT JOIN ads a ON p.ad_id = a.id
+                    WHERE p.status = 'pending'
+                    ORDER BY p.id ASC;
+                """) as cursor:
+                    rows = await cursor.fetchall()
+                    return [dict(r) for r in rows]
+
     # ==================== STATS METHODS ====================
 
     async def get_stats(self) -> Dict[str, Any]:

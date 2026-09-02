@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 
 from database import db
 from states import AdminStates
-from keyboards import get_admin_panel_kb, get_main_menu, get_cancel_kb
+from keyboards import get_admin_panel_kb, get_main_menu, get_cancel_kb, get_admin_verify_payment_kb
 import config
 
 router = Router()
@@ -51,7 +51,7 @@ async def verify_admin_password(message: Message, state: FSMContext):
             f"💰 Jami tasdiqlangan tushum: <b>{stats['total_earned']:,} so'm</b>\n\n"
             f"🗄 Ma'lumotlar bazasi: <b>{stats['db_type']}</b>"
         )
-        await message.answer(text, reply_markup=get_admin_panel_kb())
+        await message.answer(text, reply_markup=get_admin_panel_kb(stats['pending_payments']))
     else:
         await state.clear()
         await message.answer(
@@ -81,10 +81,67 @@ async def process_admin_stats(call: CallbackQuery):
         f"🗄 Ma'lumotlar bazasi turi: <b>{stats['db_type']}</b>"
     )
     try:
-        await call.message.edit_text(text, reply_markup=get_admin_panel_kb())
+        await call.message.edit_text(text, reply_markup=get_admin_panel_kb(stats['pending_payments']))
     except Exception:
         pass
     await call.answer("Statistika yangilandi")
+
+@router.callback_query(F.data == "adm_pending_vip")
+async def process_admin_pending_vip(call: CallbackQuery, bot: Bot):
+    if not is_admin(call.from_user.id):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    pending_list = await db.get_pending_vip_payments()
+    if not pending_list:
+        await call.answer("⭐️ Hozirda kutilayotgan yangi VIP to'lovlar yo'q.", show_alert=True)
+        return
+
+    await call.answer(f"{len(pending_list)} ta VIP so'rov topildi")
+    await call.message.answer(f"⭐️ <b>KUTILAYOTGAN VIP TO'LOVLAR RO'YXATI ({len(pending_list)} TA):</b>")
+
+    for p in pending_list:
+        payment_id = p["id"]
+        ad_id = p["ad_id"]
+        plan_days = p["plan_days"]
+        amount = p["amount"]
+        user_id = p["user_id"]
+        brand = p.get("brand") or "Telefon"
+        model = p.get("model") or ""
+        price = p.get("price") or ""
+        receipt_photo_id = p.get("receipt_photo_id")
+
+        caption = (
+            f"⭐️ <b>VIP TO'LOV SO'ROVI #{payment_id}</b>\n\n"
+            f"📱 E'lon: <b>{brand} {model}</b> (ID: #{ad_id})\n"
+            f"💰 Narxi: {price}\n"
+            f"👤 Mijoz ID: <code>{user_id}</code>\n"
+            f"📅 VIP muddati: <b>{plan_days} kun</b>\n"
+            f"💵 To'lov summasi: <b>{amount:,} so'm</b>\n\n"
+            f"To'lov chekini tekshirib, tasdiqlang:"
+        )
+
+        kb = get_admin_verify_payment_kb(payment_id, ad_id, plan_days)
+        try:
+            if receipt_photo_id and receipt_photo_id not in ("default", "receipt", "test_photo_id"):
+                await bot.send_photo(
+                    chat_id=call.from_user.id,
+                    photo=receipt_photo_id,
+                    caption=caption,
+                    reply_markup=kb
+                )
+            else:
+                await bot.send_message(
+                    chat_id=call.from_user.id,
+                    text=caption,
+                    reply_markup=kb
+                )
+        except Exception:
+            await bot.send_message(
+                chat_id=call.from_user.id,
+                text=caption,
+                reply_markup=kb
+            )
 
 # ==================== VIP TO'LOVNI TASDIQLASH / RAD ETISH ====================
 

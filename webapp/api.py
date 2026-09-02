@@ -282,13 +282,13 @@ async def api_buy_vip(request):
                             chat_id=admin_id,
                             photo=receipt_photo_id,
                             caption=admin_caption,
-                            reply_markup=get_admin_verify_payment_kb(payment_id)
+                            reply_markup=get_admin_verify_payment_kb(payment_id, ad_id, plan_days)
                         )
                     else:
                         await bot.send_message(
                             chat_id=admin_id,
                             text=admin_caption,
-                            reply_markup=get_admin_verify_payment_kb(payment_id)
+                            reply_markup=get_admin_verify_payment_kb(payment_id, ad_id, plan_days)
                         )
                 except Exception as ex:
                     logger.warning(f"Adminga VIP xabar yuborishda xatolik: {ex}")
