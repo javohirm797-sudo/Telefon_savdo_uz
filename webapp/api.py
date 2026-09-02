@@ -59,14 +59,13 @@ async def api_get_auctions(request):
     return web.json_response(clean_auc)
 
 async def api_get_photo(request):
-    """Telegram photo_id bo'yicha e'lonning haqiqiy rasmini olib beruvchi proxy"""
+    """Telegram photo_id bo'yicha e'lonning asl rasmini yuklab beruvchi tezyurar proxy"""
     photo_id = request.match_info.get("photo_id")
-    bot = request.app.get("bot")
 
     if not photo_id or photo_id in ("default", "test_photo_id"):
         return web.Response(status=404, text="Photo not found")
 
-    # Keshda bo'lsa darhol beramiz
+    # 1. Tezkor RAM keshi
     if photo_id in photo_bytes_cache:
         return web.Response(
             body=photo_bytes_cache[photo_id],
@@ -75,17 +74,25 @@ async def api_get_photo(request):
         )
 
     try:
-        # 1. Telegram fayl URL ini olish
+        session = await get_shared_session()
+
+        # 2. Telegram REST API orqali file_path olish
         if photo_id in photo_url_cache:
             file_url = photo_url_cache[photo_id]
         else:
-            file_info = await bot.get_file(photo_id)
-            file_url = f"https://api.telegram.org/file/bot{config.BOT_TOKEN}/{file_info.file_path}"
-            photo_url_cache[photo_id] = file_url
+            api_url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/getFile?file_id={photo_id}"
+            async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status != 200:
+                    return web.Response(status=404)
+                data = await resp.json()
+                if not data.get("ok"):
+                    return web.Response(status=404)
+                file_path = data["result"]["file_path"]
+                file_url = f"https://api.telegram.org/file/bot{config.BOT_TOKEN}/{file_path}"
+                photo_url_cache[photo_id] = file_url
 
-        # 2. Asl rasmni Telegramdan yuklash
-        session = await get_shared_session()
-        async with session.get(file_url) as resp:
+        # 3. Asl telefon rasmini yuklab foydalanuvchiga yuborish
+        async with session.get(file_url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
             if resp.status == 200:
                 content = await resp.read()
                 photo_bytes_cache[photo_id] = content

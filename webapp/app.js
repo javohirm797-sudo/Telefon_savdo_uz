@@ -152,7 +152,7 @@ function applyFilters() {
 function renderAdCard(ad) {
   const isVip = ad.is_vip ? 'vip' : '';
   const vipBadge = ad.is_vip ? '<span class="card-vip-badge">⭐️ VIP</span>' : '';
-  const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}` : '';
+  const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}?v=real` : '';
   const title = `${ad.brand || ''} ${ad.model || ''}`;
 
   return `
@@ -204,7 +204,7 @@ function openAdModal(adId) {
   const ad = allAds.find(a => a.id === adId);
   if (!ad) return;
 
-  const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}` : '';
+  const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}?v=real` : '';
   document.getElementById('modalImg').src = photoUrl;
   document.getElementById('modalTitle').textContent = `${ad.brand} ${ad.model}`;
   document.getElementById('modalPrice').textContent = ad.price;
@@ -294,7 +294,7 @@ function onRegionChange(region) {
 }
 
 function renderAuctionCard(auc) {
-  const photoUrl = auc.photo_id ? `/api/photo/${auc.photo_id}` : '';
+  const photoUrl = auc.photo_id ? `/api/photo/${auc.photo_id}?v=real` : '';
   const title = `${auc.brand} ${auc.model}`;
   const currPrice = (auc.current_price || auc.start_price || 0).toLocaleString();
   const minStep = (auc.min_step || 50000).toLocaleString();
