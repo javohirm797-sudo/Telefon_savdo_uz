@@ -9,7 +9,7 @@ ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_RAW.split(",") if x.strip().isdig
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Javoh2323..")
 
 # Web App sozlamalari
-WEBAPP_URL = os.getenv("WEBAPP_URL", "https://telefon-bozor.onrender.com").strip()
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://telefon-savdo-bot.onrender.com").strip()
 PORT = int(os.getenv("PORT", 8080))
 
 # Database Settings
