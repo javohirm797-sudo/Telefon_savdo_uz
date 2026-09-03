@@ -10,6 +10,7 @@ from keyboards import (
     get_models_inline_kb, get_regions_inline_kb
 )
 from utils import format_ad_caption
+import config
 
 router = Router()
 
