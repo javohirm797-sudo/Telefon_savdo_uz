@@ -6,7 +6,7 @@ from .inline import (
     get_my_ad_actions_kb, get_vip_plans_kb,
     get_admin_verify_payment_kb, get_admin_panel_kb,
     get_auction_min_steps_kb, get_auction_duration_kb, get_confirm_auction_kb,
-    get_auction_navigation_kb
+    get_auction_navigation_kb, get_admin_verify_auction_kb
 )
 
 __all__ = [
@@ -17,6 +17,6 @@ __all__ = [
     "get_my_ad_actions_kb", "get_vip_plans_kb",
     "get_admin_verify_payment_kb", "get_admin_panel_kb",
     "get_auction_min_steps_kb", "get_auction_duration_kb", "get_confirm_auction_kb",
-    "get_auction_navigation_kb"
+    "get_auction_navigation_kb", "get_admin_verify_auction_kb"
 ]
 
