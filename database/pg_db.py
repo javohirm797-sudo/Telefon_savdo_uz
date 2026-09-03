@@ -291,9 +291,23 @@ class Database:
     # ==================== ADS METHODS ====================
 
     async def add_ad(self, data: Dict[str, Any]) -> int:
-        """Yangi e'lon qo'shish"""
+        """Yangi e'lon qo'shish (takroriy dublikatlardan himoyalangan)"""
+        user_id = data["user_id"]
+        model = data["model"]
+        price = data["price"]
+
         if self.is_postgres:
             async with self.pg_pool.acquire() as conn:
+                # So'nggi 20 soniya ichida ayni shu foydalanuvchi va modeldagi dublikatni tekshirish
+                existing_id = await conn.fetchval("""
+                    SELECT id FROM ads 
+                    WHERE user_id = $1 AND model = $2 AND price = $3 
+                      AND created_at > (NOW() - INTERVAL '20 seconds')
+                    ORDER BY id DESC LIMIT 1;
+                """, user_id, model, price)
+                if existing_id:
+                    return existing_id
+
                 ad_id = await conn.fetchval("""
                     INSERT INTO ads (
                         user_id, brand, model, condition, memory, battery, 
@@ -312,6 +326,16 @@ class Database:
                 return ad_id
         else:
             async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                async with conn.execute("""
+                    SELECT id FROM ads 
+                    WHERE user_id = ? AND model = ? AND price = ?
+                      AND created_at > datetime('now', '-20 seconds')
+                    ORDER BY id DESC LIMIT 1;
+                """, (user_id, model, price)) as cursor:
+                    row = await cursor.fetchone()
+                    if row:
+                        return row[0]
+
                 cursor = await conn.execute("""
                     INSERT INTO ads (
                         user_id, brand, model, condition, memory, battery, 
@@ -470,6 +494,24 @@ class Database:
                 cursor = await conn.execute(
                     "UPDATE ads SET status = 'deleted' WHERE id = ? AND user_id = ?;",
                     (ad_id, user_id)
+                )
+                await conn.commit()
+                return cursor.rowcount > 0
+
+    async def admin_delete_ad(self, ad_id: int) -> bool:
+        """Admin tomonidan istalgan e'lonni o'chirish"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                res = await conn.execute(
+                    "UPDATE ads SET status = 'deleted' WHERE id = $1;",
+                    ad_id
+                )
+                return "UPDATE 1" in res
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                cursor = await conn.execute(
+                    "UPDATE ads SET status = 'deleted' WHERE id = ?;",
+                    (ad_id,)
                 )
                 await conn.commit()
                 return cursor.rowcount > 0

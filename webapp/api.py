@@ -227,7 +227,11 @@ async def api_delete_ad(request):
         if not ad_id or not user_id:
             return web.json_response({"success": False, "message": "Ma'lumotlar yetarli emas!"})
 
-        deleted = await db.delete_user_ad(ad_id=ad_id, user_id=user_id)
+        if user_id in config.ADMIN_IDS:
+            deleted = await db.admin_delete_ad(ad_id=ad_id)
+        else:
+            deleted = await db.delete_user_ad(ad_id=ad_id, user_id=user_id)
+
         if deleted:
             return web.json_response({"success": True, "message": "E'lon muvaffaqiyatli o'chirildi!"})
         else:

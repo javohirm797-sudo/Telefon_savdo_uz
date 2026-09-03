@@ -107,7 +107,7 @@ def get_confirm_ad_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_action")]
     ])
 
-def get_single_ad_contact_kb(ad: dict) -> InlineKeyboardMarkup:
+def get_single_ad_contact_kb(ad: dict, is_admin: bool = False) -> InlineKeyboardMarkup:
     """1-telefon uchun shaxsiy aloqa tugmalari"""
     keyboard = []
     contact_row = []
@@ -122,9 +122,13 @@ def get_single_ad_contact_kb(ad: dict) -> InlineKeyboardMarkup:
 
     if contact_row:
         keyboard.append(contact_row)
+
+    if is_admin:
+        keyboard.append([InlineKeyboardButton(text="🗑 1-telefonni o'chirish (Admin)", callback_data=f"adm_del_ad:{ad['id']}")])
+
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-def get_two_ads_navigation_kb(ad: dict, current_page: int, total_pages: int, total_count: int) -> InlineKeyboardMarkup:
+def get_two_ads_navigation_kb(ad: dict, current_page: int, total_pages: int, total_count: int, is_admin: bool = False) -> InlineKeyboardMarkup:
     """2-telefon uchun shaxsiy aloqa tugmalari va navigatsiya paneli"""
     keyboard = []
     
@@ -141,6 +145,9 @@ def get_two_ads_navigation_kb(ad: dict, current_page: int, total_pages: int, tot
 
     if contact_row:
         keyboard.append(contact_row)
+
+    if is_admin:
+        keyboard.append([InlineKeyboardButton(text="🗑 2-telefonni o'chirish (Admin)", callback_data=f"adm_del_ad:{ad['id']}")])
 
     # Navigatsiya (Oldingi / Keyingi sahifa)
     nav_row = []
@@ -161,7 +168,7 @@ def get_two_ads_navigation_kb(ad: dict, current_page: int, total_pages: int, tot
     keyboard.append([InlineKeyboardButton(text="❌ Yopish", callback_data="close_view")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-def get_ad_navigation_kb(ad_id: int, current_index: int, total_count: int, seller_username: str, seller_phone: str) -> InlineKeyboardMarkup:
+def get_ad_navigation_kb(ad_id: int, current_index: int, total_count: int, seller_username: str, seller_phone: str, is_admin: bool = False) -> InlineKeyboardMarkup:
     """Bozor e'lonlarini ko'rish va aloqa tugmalari (bitta e'lon uchun fallback)"""
     keyboard = []
     
@@ -175,6 +182,9 @@ def get_ad_navigation_kb(ad_id: int, current_index: int, total_count: int, selle
     
     if contact_row:
         keyboard.append(contact_row)
+
+    if is_admin:
+        keyboard.append([InlineKeyboardButton(text="🗑 E'lonni o'chirish (Admin)", callback_data=f"adm_del_ad:{ad_id}")])
 
     # Navigatsiya (Oldingi / Keyingi)
     nav_row = []
@@ -313,6 +323,7 @@ def get_admin_panel_kb(pending_vip_count: int = 0) -> InlineKeyboardMarkup:
     vip_label = f"⭐️ Kutilayotgan VIP to'lovlar ({pending_vip_count} ta)" if pending_vip_count > 0 else "⭐️ Kutilayotgan VIP to'lovlar"
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=vip_label, callback_data="adm_pending_vip")],
+        [InlineKeyboardButton(text="🗑 E'lonni ID bo'yicha o'chirish", callback_data="adm_del_by_id")],
         [InlineKeyboardButton(text="📊 To'liq Statistika", callback_data="adm_stats")],
         [InlineKeyboardButton(text="📢 Barcha foydalanuvchilarga xabar (Broadcast)", callback_data="adm_broadcast")],
         [InlineKeyboardButton(text="🔄 Yangilash", callback_data="adm_refresh")]

@@ -108,6 +108,8 @@ async def show_ad_page(event, user_id: int, page_index: int = 0, is_edit: bool =
 
     sent_msg_ids = []
 
+    is_viewer_admin = (user_id in config.ADMIN_IDS)
+
     if len(ads) == 1:
         # 1 ta e'lon bo'lsa
         ad = ads[0]
@@ -117,7 +119,8 @@ async def show_ad_page(event, user_id: int, page_index: int = 0, is_edit: bool =
             current_index=page_index,
             total_count=total_pages,
             seller_username=ad.get("contact_username", ""),
-            seller_phone=ad.get("contact_phone", "")
+            seller_phone=ad.get("contact_phone", ""),
+            is_admin=is_viewer_admin
         )
         msg = await safe_send_ad(bot, chat_id, ad["photo_id"], caption, kb)
         sent_msg_ids.append(msg.message_id)
@@ -130,11 +133,11 @@ async def show_ad_page(event, user_id: int, page_index: int = 0, is_edit: bool =
         caption1 = f"📱 <b>[{ad1_idx}/{total_count}] 1-TELEFON:</b>\n\n" + format_ad_caption(ad1, is_preview=False)
         caption2 = f"📱 <b>[{ad2_idx}/{total_count}] 2-TELEFON:</b>\n\n" + format_ad_caption(ad2, is_preview=False)
 
-        kb1 = get_single_ad_contact_kb(ad1)
+        kb1 = get_single_ad_contact_kb(ad1, is_admin=is_viewer_admin)
         msg1 = await safe_send_ad(bot, chat_id, ad1["photo_id"], caption1, kb1)
         sent_msg_ids.append(msg1.message_id)
 
-        kb2 = get_two_ads_navigation_kb(ad2, current_page=page_index, total_pages=total_pages, total_count=total_count)
+        kb2 = get_two_ads_navigation_kb(ad2, current_page=page_index, total_pages=total_pages, total_count=total_count, is_admin=is_viewer_admin)
         msg2 = await safe_send_ad(bot, chat_id, ad2["photo_id"], caption2, kb2)
         sent_msg_ids.append(msg2.message_id)
 

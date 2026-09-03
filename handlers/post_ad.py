@@ -258,12 +258,19 @@ async def process_description(message: Message, state: FSMContext):
 @router.callback_query(PostAdStates.confirm, F.data == "confirm_ad_publish")
 async def process_publish_free(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    data["is_vip"] = False
-    
-    ad_id = await db.add_ad(data)
     await state.clear()
+    if not data or "model" not in data:
+        await call.answer()
+        return
+
+    data["is_vip"] = False
+    ad_id = await db.add_ad(data)
     
-    await call.message.delete()
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+
     is_admin = call.from_user.id in config.ADMIN_IDS
     await call.message.answer(
         f"🎉 <b>E'loningiz muvaffaqiyatli qabul qilindi va bozorga joylandi!</b>\n\n"
@@ -277,12 +284,19 @@ async def process_publish_free(call: CallbackQuery, state: FSMContext):
 @router.callback_query(PostAdStates.confirm, F.data == "confirm_ad_vip")
 async def process_publish_vip(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    data["is_vip"] = False
-    
-    ad_id = await db.add_ad(data)
     await state.clear()
+    if not data or "model" not in data:
+        await call.answer()
+        return
+
+    data["is_vip"] = False
+    ad_id = await db.add_ad(data)
     
-    await call.message.delete()
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+
     await call.message.answer(
         f"✅ E'loningiz saqlandi (ID: <b>#{ad_id}</b>)!\n\n"
         f"⭐️ <b>E'loningizni eng yuqoriga chiqarish uchun VIP tarifni tanlang:</b>",

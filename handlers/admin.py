@@ -270,3 +270,69 @@ async def process_broadcast_message(message: Message, state: FSMContext, bot: Bo
         f"🚫 Yetib bormadi (bloklagan): <b>{fail_count} ta</b>"
     )
     await message.answer("Bosh menyudasiz:", reply_markup=get_main_menu())
+
+# ==================== E'LONNI O'CHIRISH (ADMIN) ====================
+
+@router.callback_query(F.data.startswith("adm_del_ad:"))
+async def process_admin_delete_ad_inline(call: CallbackQuery):
+    """Bozor ro'yxatida ko'rib turgan e'lonni admin tomonidan o'chirish"""
+    if not is_admin(call.from_user.id):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    ad_id = int(call.data.split(":")[1])
+    deleted = await db.admin_delete_ad(ad_id)
+    if deleted:
+        try:
+            await call.message.delete()
+        except Exception:
+            pass
+        await call.message.answer(f"🗑 <b>E'lon #{ad_id} muvaffaqiyatli o'chirildi!</b>")
+        await call.answer("E'lon o'chirildi!", show_alert=True)
+    else:
+        await call.answer("E'lon topilmadi yoki allaqachon o'chirilgan.", show_alert=True)
+
+@router.callback_query(F.data == "adm_del_by_id")
+async def start_admin_delete_by_id(call: CallbackQuery, state: FSMContext):
+    """Admin panelidan ID orqali e'lon o'chirishni boshlash"""
+    if not is_admin(call.from_user.id):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    await state.set_state(AdminStates.delete_ad)
+    await call.message.answer(
+        "🗑 <b>E'LONNI O'CHIRISH (ADMIN):</b>\n\n"
+        "O'chirmoqchi bo'lgan e'loningizning <b>ID raqamini</b> yozing (Masalan: <code>15</code>):",
+        reply_markup=get_cancel_kb()
+    )
+    await call.answer()
+
+@router.message(AdminStates.delete_ad)
+async def process_admin_delete_by_id_input(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    text = message.text.strip().replace("#", "")
+    if not text.isdigit():
+        await message.answer("⚠️ Iltimos, faqatgina raqam kiriting (Masalan: 12):")
+        return
+
+    ad_id = int(text)
+    ad = await db.get_ad_by_id(ad_id)
+    if not ad:
+        await message.answer(f"❌ <b>#{ad_id}</b> raqamli e'lon bazadan topilmadi!")
+        return
+
+    deleted = await db.admin_delete_ad(ad_id)
+    await state.clear()
+    if deleted:
+        await message.answer(
+            f"✅ <b>E'LON O'CHIRILDI!</b>\n\n"
+            f"📱 E'lon: <b>{ad.get('brand')} {ad.get('model')}</b> (#{ad_id})\n"
+            f"💰 Narxi: {ad.get('price')}\n"
+            f"👤 Egasi ID: {ad.get('user_id')}\n\n"
+            f"Ushbu e'lon bozor ro'yxatidan va Web App'dan butunlay olib tashlandi.",
+            reply_markup=get_admin_panel_kb()
+        )
+    else:
+        await message.answer("❌ E'lonni o'chirishda xatolik yuz berdi.", reply_markup=get_admin_panel_kb())

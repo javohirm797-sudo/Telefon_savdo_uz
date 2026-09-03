@@ -200,9 +200,13 @@ function clearSearch() {
 
 // ==================== MODAL OYNA (E'lon tafsilotlari) ====================
 
+let currentOpenedAdId = null;
+
 function openAdModal(adId) {
   const ad = allAds.find(a => a.id === adId);
   if (!ad) return;
+
+  currentOpenedAdId = adId;
 
   const photoUrl = ad.photo_id ? `/api/photo/${ad.photo_id}?v=real` : '';
   document.getElementById('modalImg').src = photoUrl;
@@ -236,7 +240,41 @@ function openAdModal(adId) {
     phoneLink.style.display = 'none';
   }
 
+  // Admin uchun e'lonni o'chirish tugmasi
+  const adminDelRow = document.getElementById('modalAdminDeleteRow');
+  if (adminDelRow) {
+    const ADMIN_IDS = [8530025653];
+    if (ADMIN_IDS.includes(Number(currentUser.id))) {
+      adminDelRow.style.display = 'block';
+    } else {
+      adminDelRow.style.display = 'none';
+    }
+  }
+
   document.getElementById('adModal').classList.add('active');
+}
+
+async function adminDeleteCurrentAd() {
+  if (!currentOpenedAdId) return;
+  if (!confirm("Admin: Haqiqatan ham ushbu e'lonni o'chirmoqchimisiz?")) return;
+
+  try {
+    const res = await fetch('/api/delete_ad', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ad_id: currentOpenedAdId, user_id: currentUser.id })
+    });
+    const result = await res.json();
+    if (result.success) {
+      alert('✅ ' + result.message);
+      closeModalDirect();
+      loadAds();
+    } else {
+      alert('❌ ' + result.message);
+    }
+  } catch (e) {
+    alert('Aloqa xatosi yuz berdi!');
+  }
 }
 
 function closeModal(e) {
@@ -514,7 +552,11 @@ function removeSelectedPhoto() {
 
 // ==================== E'LON BERISH (FORM SUBMIT) ====================
 
+let isPostSubmitting = false;
+
 async function submitPostAd() {
+  if (isPostSubmitting) return;
+
   const brand = document.getElementById('postBrand').value;
   const model = document.getElementById('postModel').value.trim();
   const memory = document.getElementById('postMemory').value;
@@ -539,6 +581,14 @@ async function submitPostAd() {
     alert('Iltimos, telefon raqamingizni kiriting!');
     return;
   }
+
+  const submitBtn = document.querySelector('#viewPostAd .primary-submit-btn');
+  const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> E\'lon chop etilmoqda...';
+  }
+  isPostSubmitting = true;
 
   const payload = {
     user_id: currentUser.id,
@@ -577,6 +627,12 @@ async function submitPostAd() {
     }
   } catch (e) {
     alert('Tarmoq xatosi yuz berdi!');
+  } finally {
+    isPostSubmitting = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnHtml;
+    }
   }
 }
 
