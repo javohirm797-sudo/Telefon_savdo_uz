@@ -1,5 +1,4 @@
 import logging
-import datetime
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 import asyncpg
@@ -520,7 +519,7 @@ class Database:
 
     async def set_ad_vip(self, ad_id: int, days: int):
         """E'lonni VIP qilish va muddatini belgilash"""
-        vip_until = datetime.datetime.now() + datetime.timedelta(days=days)
+        vip_until = datetime.now() + timedelta(days=days)
         if self.is_postgres:
             async with self.pg_pool.acquire() as conn:
                 await conn.execute("""
@@ -573,7 +572,7 @@ class Database:
 
     async def update_vip_payment_status(self, payment_id: int, status: str):
         """VIP to'lov holatini yangilash ('approved', 'rejected')"""
-        now = datetime.datetime.now()
+        now = datetime.now()
         if self.is_postgres:
             async with self.pg_pool.acquire() as conn:
                 await conn.execute("""

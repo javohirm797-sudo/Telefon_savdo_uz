@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
@@ -12,6 +13,7 @@ from keyboards import (
 )
 import config
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 # Parol orqali avtorizatsiya qilingan adminlar
