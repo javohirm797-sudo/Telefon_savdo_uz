@@ -20,6 +20,17 @@ def format_ad_caption(ad: Dict[str, Any], is_preview: bool = False) -> str:
     username = ad.get("contact_username", "")
     username_str = f"@{username}" if username and not username.startswith("@") else (username or "Mavjud emas")
     
+    created_at = ad.get("created_at")
+    created_str = ""
+    if created_at and not is_preview:
+        try:
+            if hasattr(created_at, "strftime"):
+                created_str = f"\n📅 <b>Joylangan:</b> {created_at.strftime('%d.%m.%Y %H:%M')}"
+            else:
+                created_str = f"\n📅 <b>Joylangan:</b> {str(created_at)[:16]}"
+        except Exception:
+            pass
+
     ad_id_str = f"\n🆔 <b>E'lon ID:</b> #{ad.get('id', 'NEW')}" if not is_preview else ""
 
     caption = (
@@ -34,6 +45,7 @@ def format_ad_caption(ad: Dict[str, Any], is_preview: bool = False) -> str:
         f"📝 <b>Qo'shimcha ma'lumot:</b>\n{description}\n\n"
         f"📞 <b>Telefon:</b> <code>{phone}</code>\n"
         f"✈️ <b>Telegram:</b> {username_str}"
+        f"{created_str}"
         f"{ad_id_str}\n"
         f"━━━━━━━━━━━━━━\n"
         f"🤖 @TelefonBozorBoti orqali joylandi"

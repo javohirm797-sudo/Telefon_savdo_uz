@@ -235,10 +235,19 @@ def get_auction_duration_kb() -> InlineKeyboardMarkup:
     ])
 
 def get_confirm_auction_kb() -> InlineKeyboardMarkup:
-    """Auksionni tasdiqlash"""
+    """Auksionni to'lov orqali tasdiqlash"""
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🚀 Auksionni boshlash", callback_data="confirm_auction_start")],
+        [InlineKeyboardButton(text="💳 To'lov qilish va chek yuborish (5 000 so'm)", callback_data="confirm_auction_pay")],
         [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_action")]
+    ])
+
+def get_admin_verify_auction_kb(auc_id: int, duration_hours: int) -> InlineKeyboardMarkup:
+    """Admin uchun auksion to'lovini tasdiqlash/rad etish tugmalari"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Auksionni tasdiqlash (Boshlash)", callback_data=f"adm_appr_auc:{auc_id}:{duration_hours}"),
+            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"adm_rejc_auc:{auc_id}")
+        ]
     ])
 
 def get_auction_navigation_kb(auction: dict, current_index: int, total_count: int, viewer_id: int) -> InlineKeyboardMarkup:
@@ -318,11 +327,13 @@ def get_admin_verify_payment_kb(payment_id: int, ad_id: int, plan_days: int) -> 
         ]
     ])
 
-def get_admin_panel_kb(pending_vip_count: int = 0) -> InlineKeyboardMarkup:
+def get_admin_panel_kb(pending_vip_count: int = 0, pending_auc_count: int = 0) -> InlineKeyboardMarkup:
     """Maxfiy Admin Panel tugmalari"""
     vip_label = f"⭐️ Kutilayotgan VIP to'lovlar ({pending_vip_count} ta)" if pending_vip_count > 0 else "⭐️ Kutilayotgan VIP to'lovlar"
+    auc_label = f"🔨 Kutilayotgan auksionlar ({pending_auc_count} ta)" if pending_auc_count > 0 else "🔨 Kutilayotgan auksionlar"
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=vip_label, callback_data="adm_pending_vip")],
+        [InlineKeyboardButton(text=auc_label, callback_data="adm_pending_auctions")],
         [InlineKeyboardButton(text="🗑 E'lonni ID bo'yicha o'chirish", callback_data="adm_del_by_id")],
         [InlineKeyboardButton(text="📊 To'liq Statistika", callback_data="adm_stats")],
         [InlineKeyboardButton(text="📢 Barcha foydalanuvchilarga xabar (Broadcast)", callback_data="adm_broadcast")],

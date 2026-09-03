@@ -25,16 +25,37 @@ const currentUser = tg?.initDataUnsafe?.user || {
   username: "user"
 };
 
+function formatAdDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr).substring(0, 16);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}.${month}.${year} ${hours}:${minutes}`;
+  } catch (e) {
+    return String(dateStr).substring(0, 16);
+  }
+}
+
 function initApp() {
   try {
     const userNameEl = document.getElementById('userName');
     const profileNameEl = document.getElementById('profileName');
+    const profileUsernameEl = document.getElementById('profileUsername');
     const profileIdEl = document.getElementById('profileId');
     const postPhone = document.getElementById('postPhone');
     const postUsername = document.getElementById('postUsername');
 
+    const fullName = [currentUser.first_name, currentUser.last_name].filter(Boolean).join(' ') || 'Foydalanuvchi';
     if (userNameEl) userNameEl.textContent = currentUser.first_name || 'Profil';
-    if (profileNameEl) profileNameEl.textContent = currentUser.first_name || 'Foydalanuvchi';
+    if (profileNameEl) profileNameEl.textContent = fullName;
+    if (profileUsernameEl) {
+      profileUsernameEl.textContent = currentUser.username ? `@${currentUser.username}` : '—';
+    }
     if (profileIdEl) profileIdEl.textContent = `ID: ${currentUser.id}`;
     if (postUsername && currentUser.username) postUsername.value = `@${currentUser.username}`;
   } catch (err) {
@@ -168,6 +189,7 @@ function renderAdCard(ad) {
           <span>${ad.memory || ''}</span>
           <span>${ad.region || ''}</span>
         </div>
+        ${ad.created_at ? `<div class="card-date" style="font-size:11px; color:var(--hint-color); margin-top:4px;"><i class="fa-regular fa-clock"></i> ${formatAdDate(ad.created_at)}</div>` : ''}
       </div>
     </div>
   `;
@@ -217,6 +239,10 @@ function openAdModal(adId) {
   document.getElementById('modalBattery').textContent = ad.battery || '—';
   document.getElementById('modalColor').textContent = ad.color || '—';
   document.getElementById('modalRegion').textContent = ad.region || '—';
+  
+  const createdAtEl = document.getElementById('modalCreatedAt');
+  if (createdAtEl) createdAtEl.textContent = formatAdDate(ad.created_at) || 'Yaqinda';
+
   document.getElementById('modalDesc').textContent = ad.description || 'Qo\'shimcha ma\'lumot berilmagan.';
 
   const vipBadge = document.getElementById('modalVipBadge');
@@ -386,11 +412,12 @@ function updateTimers() {
       return;
     }
 
-    const hours = Math.floor(distance / (1000 * 60 * 60));
-    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+    const totalHours = Math.floor(distance / (1000 * 60 * 60));
+    const hours = String(totalHours).padStart(2, '0');
+    const minutes = String(Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+    const seconds = String(Math.floor((distance % (1000 * 60)) / 1000)).padStart(2, '0');
 
-    el.textContent = `${hours}s ${minutes}d ${seconds}sek`;
+    el.textContent = `${hours}:${minutes}:${seconds}`;
   });
 }
 
@@ -714,7 +741,7 @@ function openVipModal(adId, title) {
   selectedVipPlanDays = 1;
   selectedVipReceiptBase64 = null;
   removeReceiptPhoto();
-  selectVipPlan(1, 2999);
+  selectVipPlan(1, 5000);
   document.getElementById('vipAdTitle').textContent = `E'lon: ${title}`;
   document.getElementById('vipModal').classList.add('active');
 }

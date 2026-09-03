@@ -6,7 +6,10 @@ from aiogram.fsm.context import FSMContext
 
 from database import db
 from states import AdminStates
-from keyboards import get_admin_panel_kb, get_main_menu, get_cancel_kb, get_admin_verify_payment_kb
+from keyboards import (
+    get_admin_panel_kb, get_main_menu, get_cancel_kb, 
+    get_admin_verify_payment_kb, get_admin_verify_auction_kb
+)
 import config
 
 router = Router()
@@ -29,9 +32,10 @@ async def prompt_admin_password(message: Message, state: FSMContext):
 
 @router.message(AdminStates.admin_password)
 async def verify_admin_password(message: Message, state: FSMContext):
-    entered_password = message.text.strip() if message.text else ""
+    """Admin parolini tekshirish"""
+    entered = message.text.strip() if message.text else ""
     
-    if entered_password == config.ADMIN_PASSWORD:
+    if entered == config.ADMIN_PASSWORD:
         authenticated_admins.add(message.from_user.id)
         if message.from_user.id not in config.ADMIN_IDS:
             config.ADMIN_IDS.append(message.from_user.id)
@@ -39,6 +43,8 @@ async def verify_admin_password(message: Message, state: FSMContext):
         await state.clear()
         
         stats = await db.get_stats()
+        pending_aucs = await db.get_pending_auctions()
+        pending_auc_count = len(pending_aucs)
         text = (
             f"🔓 <b>XUSH KELIBSIZ, ADMIN! (Parol to'g'ri)</b>\n\n"
             f"📊 <b>Bot Statistikasi:</b>\n"
@@ -48,10 +54,11 @@ async def verify_admin_password(message: Message, state: FSMContext):
             f"👑 VIP e'lonlar: <b>{stats['vip_ads']} ta</b>\n"
             f"🤝 Sotilgan telefonlar: <b>{stats['sold_ads']} ta</b>\n\n"
             f"⏳ Kutilayotgan VIP to'lovlar: <b>{stats['pending_payments']} ta</b>\n"
+            f"🔨 Kutilayotgan auksionlar: <b>{pending_auc_count} ta</b>\n"
             f"💰 Jami tasdiqlangan tushum: <b>{stats['total_earned']:,} so'm</b>\n\n"
             f"🗄 Ma'lumotlar bazasi: <b>{stats['db_type']}</b>"
         )
-        await message.answer(text, reply_markup=get_admin_panel_kb(stats['pending_payments']))
+        await message.answer(text, reply_markup=get_admin_panel_kb(stats['pending_payments'], pending_auc_count))
     else:
         await state.clear()
         await message.answer(
@@ -68,6 +75,8 @@ async def process_admin_stats(call: CallbackQuery):
         return
 
     stats = await db.get_stats()
+    pending_aucs = await db.get_pending_auctions()
+    pending_auc_count = len(pending_aucs)
     text = (
         f"🔐 <b>MAXFIY ADMIN BOSHQARUV PANELI (YANGILANDI)</b>\n\n"
         f"📊 <b>Bot Statistikasi:</b>\n"
@@ -77,11 +86,12 @@ async def process_admin_stats(call: CallbackQuery):
         f"👑 VIP e'lonlar: <b>{stats['vip_ads']} ta</b>\n"
         f"🤝 Sotilgan telefonlar: <b>{stats['sold_ads']} ta</b>\n\n"
         f"⏳ Kutilayotgan VIP to'lovlar: <b>{stats['pending_payments']} ta</b>\n"
+        f"🔨 Kutilayotgan auksionlar: <b>{pending_auc_count} ta</b>\n"
         f"💰 Jami tasdiqlangan tushum: <b>{stats['total_earned']:,} so'm</b>\n\n"
         f"🗄 Ma'lumotlar bazasi turi: <b>{stats['db_type']}</b>"
     )
     try:
-        await call.message.edit_text(text, reply_markup=get_admin_panel_kb(stats['pending_payments']))
+        await call.message.edit_text(text, reply_markup=get_admin_panel_kb(stats['pending_payments'], pending_auc_count))
     except Exception:
         pass
     await call.answer("Statistika yangilandi")
@@ -145,47 +155,58 @@ async def process_admin_pending_vip(call: CallbackQuery, bot: Bot):
 
 # ==================== VIP TO'LOVNI TASDIQLASH / RAD ETISH ====================
 
+# ==================== VIP TO'LOVNI TASDIQLASH / RAD ETISH ====================
+
 @router.callback_query(F.data.startswith("adm_appr:"))
 async def process_approve_payment(call: CallbackQuery, bot: Bot):
     if not is_admin(call.from_user.id):
         await call.answer("Ruxsat berilmagan.", show_alert=True)
         return
 
-    parts = call.data.split(":")
-    payment_id = int(parts[1])
-    ad_id = int(parts[2])
-    plan_days = int(parts[3])
-
-    payment = await db.get_vip_payment(payment_id)
-    if not payment or payment["status"] != "pending":
-        await call.answer("Bu to'lov allaqachon ko'rib chiqilgan!", show_alert=True)
-        return
-
-    # Statuslarni yangilash
-    await db.update_vip_payment_status(payment_id, "approved")
-    await db.set_ad_vip(ad_id, plan_days)
-
-    # Admin xabarini yangilash
-    current_caption = call.message.caption or ""
-    new_caption = current_caption + f"\n\n✅ <b>TASDIQLANDI ({call.from_user.full_name} tomonidan)! E'lon {plan_days} kunga VIP qilindi.</b>"
     try:
-        await call.message.edit_caption(caption=new_caption, reply_markup=None)
-    except Exception:
-        pass
+        parts = call.data.split(":")
+        payment_id = int(parts[1])
+        ad_id = int(parts[2])
+        plan_days = int(parts[3])
 
-    # Foydalanuvchiga xabar berish
-    user_id = payment["user_id"]
-    try:
-        await bot.send_message(
-            chat_id=user_id,
-            text=f"🎉 <b>XUSHXABAR!</b>\n\n"
-                 f"Sizning <b>#{ad_id}</b> raqamli e'loningiz uchun <b>{plan_days} kunlik VIP xizmati</b> faollashtirildi!\n"
-                 f"Endi sizning e'loningiz ro'yxatning eng yuqori qismida chiqadi."
-        )
-    except Exception:
-        pass
+        payment = await db.get_vip_payment(payment_id)
+        if payment and payment.get("status") == "approved":
+            await call.answer("Bu to'lov allaqachon tasdiqlangan!", show_alert=True)
+            return
 
-    await call.answer("To'lov tasdiqlandi va VIP yoqildi!", show_alert=True)
+        # Statuslarni yangilash va e'lonni VIP qilish
+        if payment:
+            await db.update_vip_payment_status(payment_id, "approved")
+        await db.set_ad_vip(ad_id, plan_days)
+
+        # Admin xabarini yangilash
+        caption = call.message.caption or call.message.text or ""
+        new_text = caption + f"\n\n✅ <b>TASDIQLANDI ({call.from_user.full_name})! E'lon #{ad_id} {plan_days} kunga VIP qilindi.</b>"
+        try:
+            if call.message.photo:
+                await call.message.edit_caption(caption=new_text, reply_markup=None)
+            else:
+                await call.message.edit_text(text=new_text, reply_markup=None)
+        except Exception:
+            pass
+
+        # Foydalanuvchiga xabar berish
+        user_id = payment.get("user_id") if payment else None
+        if user_id:
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"🎉 <b>XUSHXABAR!</b>\n\n"
+                         f"Sizning <b>#{ad_id}</b> raqamli e'loningiz uchun <b>{plan_days} kunlik VIP xizmati</b> faollashtirildi!\n"
+                         f"Endi sizning e'loningiz ro'yxatning eng yuqori qismida chiqadi."
+                )
+            except Exception:
+                pass
+
+        await call.answer("✅ To'lov tasdiqlandi va VIP yoqildi!", show_alert=True)
+    except Exception as ex:
+        logger.error(f"VIP tasdiqlashda xatolik: {ex}")
+        await call.answer(f"Xatolik yuz berdi: {ex}", show_alert=True)
 
 @router.callback_query(F.data.startswith("adm_rejc:"))
 async def process_reject_payment(call: CallbackQuery, bot: Bot):
@@ -193,38 +214,185 @@ async def process_reject_payment(call: CallbackQuery, bot: Bot):
         await call.answer("Ruxsat berilmagan.", show_alert=True)
         return
 
-    parts = call.data.split(":")
-    payment_id = int(parts[1])
-    ad_id = int(parts[2])
+    try:
+        parts = call.data.split(":")
+        payment_id = int(parts[1])
+        ad_id = int(parts[2])
 
-    payment = await db.get_vip_payment(payment_id)
-    if not payment or payment["status"] != "pending":
-        await call.answer("Bu to'lov allaqachon ko'rib chiqilgan!", show_alert=True)
+        payment = await db.get_vip_payment(payment_id)
+        if payment and payment.get("status") == "rejected":
+            await call.answer("Bu to'lov allaqachon rad etilgan!", show_alert=True)
+            return
+
+        if payment:
+            await db.update_vip_payment_status(payment_id, "rejected")
+
+        # Admin xabarini yangilash
+        caption = call.message.caption or call.message.text or ""
+        new_text = caption + f"\n\n❌ <b>RAD ETILDI ({call.from_user.full_name})!</b>"
+        try:
+            if call.message.photo:
+                await call.message.edit_caption(caption=new_text, reply_markup=None)
+            else:
+                await call.message.edit_text(text=new_text, reply_markup=None)
+        except Exception:
+            pass
+
+        # Foydalanuvchiga xabar berish
+        user_id = payment.get("user_id") if payment else None
+        if user_id:
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"⚠️ <b>Diqqat:</b>\n\n"
+                         f"Sizning <b>#{ad_id}</b> raqamli e'loningiz uchun yuborilgan to'lov cheki admin tomonidan qabul qilinmadi.\n"
+                         f"Savollaringiz bo'lsa {config.OWNER_TELEGRAM} bilan bog'laning."
+                )
+            except Exception:
+                pass
+
+        await call.answer("To'lov rad etildi!", show_alert=True)
+    except Exception as ex:
+        logger.error(f"VIP rad etishda xatolik: {ex}")
+        await call.answer(f"Xatolik: {ex}", show_alert=True)
+
+# ==================== AUKSION TO'LOVINI TASDIQLASH / RAD ETISH ====================
+
+@router.callback_query(F.data.startswith("adm_appr_auc:"))
+async def process_approve_auction(call: CallbackQuery, bot: Bot):
+    if not is_admin(call.from_user.id):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
         return
 
-    await db.update_vip_payment_status(payment_id, "rejected")
-
-    # Admin xabarini yangilash
-    current_caption = call.message.caption or ""
-    new_caption = current_caption + f"\n\n❌ <b>RAD ETILDI ({call.from_user.full_name} tomonidan)!</b>"
     try:
-        await call.message.edit_caption(caption=new_caption, reply_markup=None)
-    except Exception:
-        pass
+        parts = call.data.split(":")
+        auc_id = int(parts[1])
+        duration_hours = int(parts[2])
 
-    # Foydalanuvchiga xabar berish
-    user_id = payment["user_id"]
+        auction = await db.get_auction_by_id(auc_id)
+        if not auction:
+            await call.answer("Auksion topilmadi!", show_alert=True)
+            return
+
+        if auction.get("status") == "active":
+            await call.answer("Bu auksion allaqachon tasdiqlangan va faol!", show_alert=True)
+            return
+
+        await db.approve_auction(auc_id, duration_hours)
+
+        caption = call.message.caption or call.message.text or ""
+        new_text = caption + f"\n\n✅ <b>TASDIQLANDI ({call.from_user.full_name})! Auksion #{auc_id} {duration_hours} soatga boshlandi.</b>"
+        try:
+            if call.message.photo:
+                await call.message.edit_caption(caption=new_text, reply_markup=None)
+            else:
+                await call.message.edit_text(text=new_text, reply_markup=None)
+        except Exception:
+            pass
+
+        # Foydalanuvchiga xabar berish
+        user_id = auction.get("user_id")
+        if user_id:
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"🎉 <b>XUSHXABAR!</b>\n\n"
+                         f"Sizning <b>#{auc_id}</b> raqamli auksioningiz admin tomonidan tasdiqlandi va rasman boshlandi!\n\n"
+                         f"📱 Telefon: <b>{auction.get('brand')} {auction.get('model')}</b>\n"
+                         f"⏱ Davomiyligi: <b>{duration_hours} soat</b>\n\n"
+                         f"Xaridorlar endi '🔨 Kimoshdi (Auksion)' bo'limida stavka qo'yishlari mumkin!"
+                )
+            except Exception:
+                pass
+
+        await call.answer("✅ Auksion tasdiqlandi va boshlandi!", show_alert=True)
+    except Exception as ex:
+        logger.error(f"Auksion tasdiqlashda xatolik: {ex}")
+        await call.answer(f"Xatolik: {ex}", show_alert=True)
+
+@router.callback_query(F.data.startswith("adm_rejc_auc:"))
+async def process_reject_auction(call: CallbackQuery, bot: Bot):
+    if not is_admin(call.from_user.id):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
     try:
-        await bot.send_message(
-            chat_id=user_id,
-            text=f"⚠️ <b>Diqqat:</b>\n\n"
-                 f"Sizning <b>#{ad_id}</b> raqamli e'loningiz uchun yuborilgan to'lov cheki admin tomonidan qabul qilinmadi.\n"
-                 f"Savollaringiz bo'lsa {config.OWNER_TELEGRAM} bilan bog'laning."
+        parts = call.data.split(":")
+        auc_id = int(parts[1])
+
+        auction = await db.get_auction_by_id(auc_id)
+        if not auction:
+            await call.answer("Auksion topilmadi!", show_alert=True)
+            return
+
+        if auction.get("status") == "rejected":
+            await call.answer("Bu auksion allaqachon rad etilgan!", show_alert=True)
+            return
+
+        await db.reject_auction(auc_id)
+
+        caption = call.message.caption or call.message.text or ""
+        new_text = caption + f"\n\n❌ <b>RAD ETILDI ({call.from_user.full_name})!</b>"
+        try:
+            if call.message.photo:
+                await call.message.edit_caption(caption=new_text, reply_markup=None)
+            else:
+                await call.message.edit_text(text=new_text, reply_markup=None)
+        except Exception:
+            pass
+
+        user_id = auction.get("user_id")
+        if user_id:
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"⚠️ <b>Diqqat:</b>\n\n"
+                         f"Sizning <b>#{auc_id}</b> raqamli auksion so'rovingiz admin tomonidan rad etildi.\n"
+                         f"Savollaringiz bo'lsa {config.OWNER_TELEGRAM} bilan bog'laning."
+                )
+            except Exception:
+                pass
+
+        await call.answer("Auksion rad etildi!", show_alert=True)
+    except Exception as ex:
+        logger.error(f"Auksion rad etishda xatolik: {ex}")
+        await call.answer(f"Xatolik: {ex}", show_alert=True)
+
+@router.callback_query(F.data == "adm_pending_auctions")
+async def show_pending_auctions(call: CallbackQuery):
+    if not is_admin(call.from_user.id):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    pending = await db.get_pending_auctions()
+    if not pending:
+        await call.answer("🔨 Hozirda kutilayotgan auksionlar mavjud emas.", show_alert=True)
+        return
+
+    await call.message.answer(f"📋 <b>Kutilayotgan auksionlar: {len(pending)} ta</b>\nHar birini quyida ko'rishingiz mumkin:")
+
+    for auc in pending:
+        dur = auc.get("duration_hours", 24)
+        cap = (
+            f"🔨 <b>Kutilayotgan auksion #{auc['id']}</b>\n\n"
+            f"📱 Telefon: <b>{auc['brand']} {auc['model']}</b>\n"
+            f"💵 Boshlang'ich narx: <b>{auc['start_price']:,} so'm</b>\n"
+            f"📈 Minimal qadam: <b>{auc.get('min_step', 50000):,} so'm</b>\n"
+            f"⏱ Davomiyligi: <b>{dur} soat</b>\n"
+            f"📞 Telefon: <code>{auc.get('contact_phone', '')}</code>\n"
+            f"👤 Foydalanuvchi ID: <code>{auc.get('user_id', '')}</code>"
         )
-    except Exception:
-        pass
+        receipt_photo = auc.get("receipt_photo_id")
+        kb = get_admin_verify_auction_kb(auc["id"], dur)
+        try:
+            if receipt_photo and receipt_photo not in ("default", "test_photo_id"):
+                await call.bot.send_photo(chat_id=call.from_user.id, photo=receipt_photo, caption=cap, reply_markup=kb)
+            else:
+                await call.bot.send_message(chat_id=call.from_user.id, text=cap, reply_markup=kb)
+        except Exception as e:
+            logger.error(f"Pending auction yuborishda xatolik: {e}")
 
-    await call.answer("To'lov rad etildi!", show_alert=True)
+    await call.answer()
 
 # ==================== BROADCAST (XABAR TARQATISH) ====================
 

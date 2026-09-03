@@ -15,6 +15,7 @@ class AuctionCreateStates(StatesGroup):
     min_step = State()
     duration = State()
     confirm = State()
+    receipt = State()
 
 class AuctionBidStates(StatesGroup):
     custom_bid = State()

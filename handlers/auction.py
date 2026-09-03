@@ -1,10 +1,11 @@
 import logging
 from datetime import datetime, timedelta
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InputMediaPhoto
 from aiogram.fsm.context import FSMContext
 
+import config
 from database import db
 from states import AuctionCreateStates, AuctionBidStates, RegisterStates
 from keyboards import (
@@ -12,7 +13,7 @@ from keyboards import (
     get_brands_inline_kb, get_models_inline_kb, get_memory_inline_kb,
     get_condition_inline_kb, get_regions_inline_kb,
     get_auction_min_steps_kb, get_auction_duration_kb, get_confirm_auction_kb,
-    get_auction_navigation_kb
+    get_auction_navigation_kb, get_admin_verify_auction_kb
 )
 from utils import format_auction_caption
 
@@ -476,24 +477,90 @@ async def process_auc_duration(call: CallbackQuery, state: FSMContext):
     caption = format_auction_caption(data, is_preview=True)
     await state.set_state(AuctionCreateStates.confirm)
     await call.message.delete()
+    
+    confirm_text = (
+        f"📋 <b>Auksion ma'lumotlarini tekshiring:</b>\n\n"
+        f"{caption}\n\n"
+        f"💰 <b>Auksion xizmati to'lovi:</b> {config.AUCTION_FEE:,} so'm\n"
+        f"<i>Davom etish va to'lov rekvizitlarini olish uchun pastdagi tugmani bosing:</i>"
+    )
+    
     await call.message.answer_photo(
         photo=data["photo_id"],
-        caption=f"📋 <b>Auksion ma'lumotlarini tekshiring:</b>\n\n" + caption,
+        caption=confirm_text,
         reply_markup=get_confirm_auction_kb()
     )
     await call.answer()
 
-@router.callback_query(AuctionCreateStates.confirm, F.data == "confirm_auction_start")
-async def confirm_auction_start(call: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    auc_id = await db.create_auction(data)
-    await state.clear()
-    await call.message.delete()
-    await call.message.answer(
-        f"🎉 <b>Auksion muvaffaqiyatli boshlandi!</b>\n\n"
-        f"Auksion ID: <b>#{auc_id}</b>\n"
-        f"Davomiyligi: <b>{data.get('duration_hours', 24)} soat</b>\n\n"
-        f"Barcha foydalanuvchilar endi '🔨 Kimoshdi (Auksion)' bo'limida sizning telefoningizni ko'rib, stavka qo'yishlari mumkin!",
-        reply_markup=get_main_menu(is_admin=False)
+@router.callback_query(AuctionCreateStates.confirm, F.data == "confirm_auction_pay")
+async def process_auc_pay_step(call: CallbackQuery, state: FSMContext):
+    await state.set_state(AuctionCreateStates.receipt)
+    text = (
+        f"💳 <b>AUKSIONGA QO'YISH UCHUN TO'LOV:</b>\n\n"
+        f"Auksion xizmati to'lovi: <b>{config.AUCTION_FEE:,} so'm</b>\n\n"
+        f"💳 <b>Karta raqami:</b>\n<code>{config.CARD_NUMBER}</code>\n"
+        f"👤 <b>Karta egasi:</b> <b>{config.CARD_HOLDER}</b>\n\n"
+        f"<i>To'lovni amalga oshirib, to'lov chekining RASMINI (skrinshotini) shu yerga yuboring:</i>"
     )
+    await call.message.delete()
+    await call.message.answer(text, reply_markup=get_cancel_kb())
     await call.answer()
+
+@router.message(AuctionCreateStates.receipt, F.photo)
+async def process_auc_receipt_photo(message: Message, state: FSMContext, bot: Bot):
+    receipt_photo_id = message.photo[-1].file_id
+    data = await state.get_data()
+    await state.clear()
+
+    if not data or "brand" not in data:
+        await message.answer("⚠️ Ma'lumotlar topilmadi. Iltimos qaytadan boshlang.", reply_markup=get_main_menu())
+        return
+
+    data["receipt_photo_id"] = receipt_photo_id
+    data["status"] = "pending"
+    auc_id = await db.create_auction(data)
+
+    duration_hours = int(data.get("duration_hours", 24))
+    user_id = message.from_user.id
+    is_admin_user = user_id in config.ADMIN_IDS
+
+    await message.answer(
+        f"🎉 <b>Auksion so'rovingiz muvaffaqiyatli qabul qilindi!</b>\n\n"
+        f"🆔 Auksion ID: <b>#{auc_id}</b>\n"
+        f"📱 Telefon: <b>{data['brand']} {data['model']}</b>\n"
+        f"💵 Boshlang'ich narx: <b>{data['start_price']:,} so'm</b>\n"
+        f"⏱ Davomiyligi: <b>{duration_hours} soat</b>\n\n"
+        f"To'lov chekingiz admin ko'rib chiqishi uchun yuborildi. "
+        f"Admin tasdiqlashi bilanoq auksion darhol ishga tushadi va sizga xabar yuboriladi!",
+        reply_markup=get_main_menu(is_admin=is_admin_user)
+    )
+
+    # Adminga yuborish
+    admin_caption = (
+        f"🔨 <b>YANGI AUKSION SO'ROVI VA TO'LOV CHEKI!</b>\n\n"
+        f"🆔 Auksion ID: <b>#{auc_id}</b>\n"
+        f"📱 Telefon: <b>{data['brand']} {data['model']}</b>\n"
+        f"💾 Xotira: <b>{data['memory']}</b> | Holati: <b>{data['condition']}</b>\n"
+        f"💵 Boshlang'ich narx: <b>{data['start_price']:,} so'm</b>\n"
+        f"📈 Minimal qadam: <b>{data.get('min_step', 50000):,} so'm</b>\n"
+        f"⏱ Davomiyligi: <b>{duration_hours} soat</b>\n"
+        f"📞 Telefon: <code>{data.get('contact_phone', '')}</code>\n"
+        f"👤 Foydalanuvchi: <a href='tg://user?id={user_id}'>{message.from_user.full_name}</a> (ID: <code>{user_id}</code>)\n"
+        f"💰 Xizmat haqi: <b>{config.AUCTION_FEE:,} so'm</b>\n\n"
+        f"<i>Chekni tekshirib, auksionni tasdiqlang yoki rad eting:</i>"
+    )
+
+    for adm_id in config.ADMIN_IDS:
+        try:
+            await bot.send_photo(
+                chat_id=adm_id,
+                photo=receipt_photo_id,
+                caption=admin_caption,
+                reply_markup=get_admin_verify_auction_kb(auc_id, duration_hours)
+            )
+        except Exception as ex:
+            logger.error(f"Adminga auksion chekini yuborishda xatolik ({adm_id}): {ex}")
+
+@router.message(AuctionCreateStates.receipt)
+async def process_auc_receipt_invalid(message: Message):
+    await message.answer("⚠️ Iltimos, to'lov chekining faqat <b>rasmini</b> yuboring:")

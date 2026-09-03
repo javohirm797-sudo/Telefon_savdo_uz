@@ -316,10 +316,13 @@
     <div id="viewProfile" class="app-view" style="display: none;">
       <header class="profile-header">
         <div class="profile-avatar">
-          <i class="fa-solid fa-user-check"></i>
+          <i class="fa-solid fa-circle-user"></i>
         </div>
         <h2 id="profileName">Foydalanuvchi</h2>
-        <span class="user-tg-id" id="profileId">ID: —</span>
+        <div class="profile-user-meta" style="display:flex; justify-content:center; gap:10px; align-items:center; margin-top:4px;">
+          <span class="user-username-badge" id="profileUsername" style="color: var(--primary-accent); font-size:13px; font-weight:700;">@username</span>
+          <span class="user-tg-id" id="profileId" style="font-size:12px;">ID: —</span>
+        </div>
       </header>
 
       <div class="profile-container">
@@ -362,6 +365,7 @@
             <div class="spec-item"><span class="label">Batareya:</span> <span class="val" id="modalBattery">100%</span></div>
             <div class="spec-item"><span class="label">Rangi:</span> <span class="val" id="modalColor">Qora</span></div>
             <div class="spec-item full"><span class="label">Hudud:</span> <span class="val" id="modalRegion">Toshkent</span></div>
+            <div class="spec-item full"><span class="label">📅 Joylangan:</span> <span class="val" id="modalCreatedAt">—</span></div>
           </div>
 
           <div class="desc-box">
@@ -423,17 +427,17 @@
 
           <!-- VIP Tariflar -->
           <div class="vip-plans-selector">
-            <div class="vip-plan-card active" id="plan1" onclick="selectVipPlan(1, 2999)">
+            <div class="vip-plan-card active" id="plan1" onclick="selectVipPlan(1, 5000)">
               <div class="plan-days">1 Kun</div>
-              <div class="plan-price">2 999 so'm</div>
+              <div class="plan-price">5 000 so'm</div>
             </div>
-            <div class="vip-plan-card" id="plan2" onclick="selectVipPlan(2, 3999)">
+            <div class="vip-plan-card" id="plan2" onclick="selectVipPlan(2, 7000)">
               <div class="plan-days">2 Kun</div>
-              <div class="plan-price">3 999 so'm</div>
+              <div class="plan-price">7 000 so'm</div>
             </div>
-            <div class="vip-plan-card" id="plan3" onclick="selectVipPlan(3, 5999)">
+            <div class="vip-plan-card" id="plan3" onclick="selectVipPlan(3, 10000)">
               <div class="plan-days">3 Kun</div>
-              <div class="plan-price">5 999 so'm</div>
+              <div class="plan-price">10 000 so'm</div>
             </div>
           </div>
 
@@ -512,6 +516,6 @@
     </nav>
   </div>
 
-  <script src="/static/app.js?v=8"></script>
+  <script src="/static/app.js?v=9"></script>
 </body>
 </html>

@@ -143,6 +143,8 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 """)
+                await conn.execute("ALTER TABLE auctions ADD COLUMN IF NOT EXISTS receipt_photo_id TEXT;")
+                await conn.execute("ALTER TABLE auctions ADD COLUMN IF NOT EXISTS duration_hours INTEGER DEFAULT 24;")
         else:
             async with aiosqlite.connect(self.sqlite_db_path) as conn:
                 await conn.execute("""
@@ -523,14 +525,14 @@ class Database:
             async with self.pg_pool.acquire() as conn:
                 await conn.execute("""
                     UPDATE ads 
-                    SET is_vip = TRUE, vip_until = $1 
+                    SET is_vip = TRUE, status = 'active', vip_until = $1 
                     WHERE id = $2;
                 """, vip_until, ad_id)
         else:
             async with aiosqlite.connect(self.sqlite_db_path) as conn:
                 await conn.execute("""
                     UPDATE ads 
-                    SET is_vip = 1, vip_until = ? 
+                    SET is_vip = 1, status = 'active', vip_until = ? 
                     WHERE id = ?;
                 """, (vip_until.isoformat(), ad_id))
                 await conn.commit()
@@ -666,12 +668,16 @@ class Database:
     # ==================== AUCTION METHODS ====================
 
     async def create_auction(self, data: Dict[str, Any]) -> int:
-        """Yangi auksion yaratish"""
-        end_time = data["end_time"]
+        """Yangi auksion yaratish (standart holda pending - to'lov tekshiruvi kutilmoqda)"""
+        end_time = data.get("end_time")
         if isinstance(end_time, datetime):
             end_time_val = end_time if self.is_postgres else end_time.strftime("%Y-%m-%d %H:%M:%S")
         else:
             end_time_val = end_time
+
+        status = data.get("status", "pending")
+        receipt_photo_id = data.get("receipt_photo_id", "")
+        duration_hours = int(data.get("duration_hours", 24))
 
         if self.is_postgres:
             async with self.pg_pool.acquire() as conn:
@@ -680,9 +686,9 @@ class Database:
                         user_id, brand, model, condition, memory, battery, 
                         color, region, photo_id, description, 
                         contact_phone, contact_username, start_price, current_price,
-                        min_step, end_time, status
+                        min_step, end_time, status, receipt_photo_id, duration_hours
                     ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'active'
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
                     ) RETURNING id;
                 """,
                 data["user_id"], data["brand"], data["model"], data["condition"],
@@ -690,7 +696,7 @@ class Database:
                 data["region"], data["photo_id"], data.get("description", ""),
                 data["contact_phone"], data.get("contact_username", ""),
                 data["start_price"], data["start_price"], data.get("min_step", 50000),
-                end_time_val
+                end_time_val, status, receipt_photo_id, duration_hours
                 )
                 return auc_id
         else:
@@ -700,18 +706,65 @@ class Database:
                         user_id, brand, model, condition, memory, battery, 
                         color, region, photo_id, description, 
                         contact_phone, contact_username, start_price, current_price,
-                        min_step, end_time, status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active');
+                        min_step, end_time, status, receipt_photo_id, duration_hours
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """, (
                     data["user_id"], data["brand"], data["model"], data["condition"],
                     data["memory"], data.get("battery", "—"), data.get("color", "—"),
                     data["region"], data["photo_id"], data.get("description", ""),
                     data["contact_phone"], data.get("contact_username", ""),
                     data["start_price"], data["start_price"], data.get("min_step", 50000),
-                    end_time_val
+                    end_time_val, status, receipt_photo_id, duration_hours
                 ))
                 await conn.commit()
                 return cursor.lastrowid
+
+    async def approve_auction(self, auc_id: int, duration_hours: int = 24) -> bool:
+        """Admin tomonidan auksionni tasdiqlash va ishga tushirish"""
+        now = datetime.now()
+        end_time = now + timedelta(hours=duration_hours)
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE auctions 
+                    SET status = 'active', end_time = $1, created_at = $2 
+                    WHERE id = $3;
+                """, end_time, now, auc_id)
+                return True
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                await conn.execute("""
+                    UPDATE auctions 
+                    SET status = 'active', end_time = ?, created_at = ? 
+                    WHERE id = ?;
+                """, (end_time.strftime("%Y-%m-%d %H:%M:%S"), now.strftime("%Y-%m-%d %H:%M:%S"), auc_id))
+                await conn.commit()
+                return True
+
+    async def reject_auction(self, auc_id: int) -> bool:
+        """Admin tomonidan auksionni rad etish"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                await conn.execute("UPDATE auctions SET status = 'rejected' WHERE id = $1;", auc_id)
+                return True
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                await conn.execute("UPDATE auctions SET status = 'rejected' WHERE id = ?;", (auc_id,))
+                await conn.commit()
+                return True
+
+    async def get_pending_auctions(self) -> List[Dict[str, Any]]:
+        """Kutilayotgan barcha auksionlar ro'yxatini olish"""
+        if self.is_postgres:
+            async with self.pg_pool.acquire() as conn:
+                rows = await conn.fetch("SELECT * FROM auctions WHERE status = 'pending' ORDER BY id ASC;")
+                return [dict(r) for r in rows]
+        else:
+            async with aiosqlite.connect(self.sqlite_db_path) as conn:
+                conn.row_factory = aiosqlite.Row
+                async with conn.execute("SELECT * FROM auctions WHERE status = 'pending' ORDER BY id ASC;") as cursor:
+                    rows = await cursor.fetchall()
+                    return [dict(r) for r in rows]
 
     async def get_auction_by_id(self, auction_id: int) -> Optional[Dict[str, Any]]:
         """Auksionni ID bo'yicha olish"""
