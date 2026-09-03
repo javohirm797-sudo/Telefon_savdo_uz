@@ -31,16 +31,16 @@ OWNER_PHONE = os.getenv("OWNER_PHONE", "+998947762528")
 CARD_NUMBER = os.getenv("CARD_NUMBER", "5614-6818-7592-1300")
 CARD_HOLDER = os.getenv("CARD_HOLDER", "MAVLONOV JAVOHIR")
 
-# VIP Pricing (1 kun: 5000, 2 kun: 7000, 3 kun: 10000)
-VIP_PRICE_1_DAY = int(os.getenv("VIP_PRICE_1_DAY", 5000))
-VIP_PRICE_2_DAYS = int(os.getenv("VIP_PRICE_2_DAYS", 7000))
-VIP_PRICE_3_DAYS = int(os.getenv("VIP_PRICE_3_DAYS", 10000))
+# VIP Pricing (1 kun: 5 000, 2 kun: 7 000, 3 kun: 10 000)
+VIP_PRICE_1_DAY = 5000
+VIP_PRICE_2_DAYS = 7000
+VIP_PRICE_3_DAYS = 10000
 
 # Auksion to'lovi (5 000 so'm)
-AUCTION_FEE = int(os.getenv("AUCTION_FEE", 5000))
+AUCTION_FEE = 5000
 
 VIP_PLANS = {
-    "1": {"days": 1, "price": VIP_PRICE_1_DAY, "title": "⭐️ 1 Kunlik VIP (5 000 so'm)"},
-    "2": {"days": 2, "price": VIP_PRICE_2_DAYS, "title": "⭐️ 2 Kunlik VIP (7 000 so'm)"},
-    "3": {"days": 3, "price": VIP_PRICE_3_DAYS, "title": "⭐️ 3 Kunlik VIP (10 000 so'm)"},
+    "1": {"days": 1, "price": 5000, "title": "⭐️ 1 Kunlik VIP (5 000 so'm)"},
+    "2": {"days": 2, "price": 7000, "title": "⭐️ 2 Kunlik VIP (7 000 so'm)"},
+    "3": {"days": 3, "price": 10000, "title": "⭐️ 3 Kunlik VIP (10 000 so'm)"},
 }

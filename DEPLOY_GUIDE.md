@@ -65,9 +65,10 @@ git push -u origin main
    - `OWNER_PHONE` = `+998947762528`
    - `CARD_NUMBER` = `5614-6818-7592-1300`
    - `CARD_HOLDER` = `MAVLONOV JAVOHIR`
-   - `VIP_PRICE_1_DAY` = `2999`
-   - `VIP_PRICE_2_DAYS` = `3999`
-   - `VIP_PRICE_3_DAYS` = `5999`
+   - `VIP_PRICE_1_DAY` = `5000`
+   - `VIP_PRICE_2_DAYS` = `7000`
+   - `VIP_PRICE_3_DAYS` = `10000`
+   - `AUCTION_FEE` = `5000`
 6. **"Create Background Worker"** (yoki **"Deploy"**) tugmasini bosing!
 
 ---
