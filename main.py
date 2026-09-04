@@ -70,13 +70,7 @@ async def set_bot_commands(bot: Bot):
     """Bot menyusidagi buyruqlar"""
     commands = [
         BotCommand(command="start", description="🔄 Botni qayta ishga tushirish"),
-        BotCommand(command="market", description="🛍 Telefonlar bozori (E'lonlar)"),
-        BotCommand(command="auction", description="🔨 Kimoshdi (Auksion)"),
-        BotCommand(command="post_auction", description="➕ Auksionga telefon qo'yish"),
-        BotCommand(command="post_ad", description="➕ Yangi e'lon joylash"),
-        BotCommand(command="my_ads", description="📋 Mening e'lonlarim"),
-        BotCommand(command="vip", description="⭐️ VIP e'lon xizmati"),
-        BotCommand(command="contact", description="👨‍💻 Admin bilan bog'lanish")
+        BotCommand(command="market", description="🛍 Telefonlar bozori (E'lonlar)")
     ]
     await bot.set_my_commands(commands)
 

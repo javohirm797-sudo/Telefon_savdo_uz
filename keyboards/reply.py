@@ -2,7 +2,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 import config
 
 def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
-    """Bosh menyu klaviaturasi"""
+    """Bosh menyu klaviaturasi - faqat Web App va Telefonlar bozori"""
     buttons = [
         [
             KeyboardButton(
@@ -10,10 +10,7 @@ def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
                 web_app=WebAppInfo(url=config.WEBAPP_URL)
             )
         ],
-        [KeyboardButton(text="🛍 Telefonlar bozori (E'lonlar)"), KeyboardButton(text="➕ E'lon joylash")],
-        [KeyboardButton(text="🔨 Kimoshdi (Auksion)"), KeyboardButton(text="➕ Auksionga qo'yish")],
-        [KeyboardButton(text="📋 Mening e'lonlarim"), KeyboardButton(text="⭐️ VIP xizmati")],
-        [KeyboardButton(text="👨‍💻 Bog'lanish (Admin)")]
+        [KeyboardButton(text="🛍 Telefonlar bozori (E'lonlar)")]
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
