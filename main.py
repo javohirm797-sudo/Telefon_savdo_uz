@@ -128,3 +128,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Bot to'xtatildi.")
+    except Exception as ex:
+        logger.critical(f"Kutilmagan xatolik: {ex}", exc_info=True)
