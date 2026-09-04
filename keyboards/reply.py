@@ -6,7 +6,7 @@ def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
     buttons = [
         [
             KeyboardButton(
-                text="🌐 Mobil Bozor (Web App)", 
+                text="🌐 E'lon bering (Web App)", 
                 web_app=WebAppInfo(url=config.WEBAPP_URL)
             )
         ],

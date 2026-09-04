@@ -22,7 +22,7 @@ async def cmd_start(message: Message, state: FSMContext):
         await message.bot.set_chat_menu_button(
             chat_id=user_id,
             menu_button=MenuButtonWebApp(
-                text="📱 Bozor",
+                text="📱 E'lon bering",
                 web_app=WebAppInfo(url=config.WEBAPP_URL)
             )
         )
@@ -40,7 +40,7 @@ async def cmd_start(message: Message, state: FSMContext):
     else:
         await message.answer(
             f"Assalomu alaykum, <b>{user.get('full_name', message.from_user.full_name)}</b>!\n\n"
-            f"Kerakli bo'limni tanlang yoki <b>🌐 Mobil Bozor</b> tugmasini bosing:",
+            f"Kerakli bo'limni tanlang yoki <b>🌐 E'lon bering (Web App)</b> tugmasini bosing:",
             reply_markup=get_main_menu(is_admin=is_admin)
         )
 
