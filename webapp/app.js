@@ -94,7 +94,7 @@ function switchBottomNav(tab) {
     view.classList.add('active');
     document.getElementById('navAuction').classList.add('active');
     switchTab('auction');
-  } else if (tab === 'post_ad') {
+  } else if (tab === 'post_ad' || tab === 'post') {
     const view = document.getElementById('viewPostAd');
     view.style.display = 'block';
     view.classList.add('active');
@@ -712,8 +712,21 @@ function switchPostType(type) {
 }
 
 function goToPostAuction() {
-  switchBottomNav('post');
+  switchBottomNav('post_ad');
   switchPostType('auction');
+}
+
+function copyCardNumber() {
+  const card = "5614681875921300";
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(card).then(() => {
+      alert("✅ Karta raqami nusxalandi: 5614 6818 7592 1300");
+    }).catch(() => {
+      prompt("Karta raqamini nusxalab oling:", card);
+    });
+  } else {
+    prompt("Karta raqamini nusxalab oling:", card);
+  }
 }
 
 function onAucReceiptSelected(e) {
