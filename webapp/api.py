@@ -217,6 +217,103 @@ async def api_post_ad(request):
         logger.error(f"api_post_ad xatosi: {e}")
         return web.json_response({"success": False, "message": str(e)})
 
+async def api_post_auction(request):
+    """Web App orqali auksionga telefon qo'yish (to'lov cheki bilan)"""
+    try:
+        from keyboards import get_admin_verify_auction_kb
+        from datetime import datetime, timedelta
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        brand = str(data.get("brand", ""))
+        model = str(data.get("model", "")).strip()
+        phone = str(data.get("contact_phone", "")).strip()
+        start_price = int(data.get("start_price", 0))
+        min_step = int(data.get("min_step", 50000))
+        duration_hours = int(data.get("duration_hours", 24))
+        photo_base64 = data.get("photo_base64", "")
+        receipt_base64 = data.get("receipt_base64", "")
+
+        if not model or not phone or start_price < 10000:
+            return web.json_response({"success": False, "message": "Barcha maydonlarni to'g'ri to'ldiring!"})
+
+        if not receipt_base64:
+            return web.json_response({"success": False, "message": "Iltimos, 5 000 so'm to'lov chekining rasmini yuklang!"})
+
+        bot = request.app.get("bot")
+        photo_id = "default"
+        if photo_base64 and bot:
+            photo_id = await upload_base64_to_telegram(
+                bot, photo_base64,
+                caption=f"🔨 Web App Auksion: {brand} {model}\n💵 Boshlang'ich: {start_price:,} so'm"
+            )
+
+        receipt_photo_id = "receipt"
+        if receipt_base64 and bot:
+            receipt_photo_id = await upload_base64_to_telegram(
+                bot, receipt_base64,
+                caption=f"🧾 Auksion to'lov cheki (Web App)\nTelefon: {brand} {model}\nSumma: 5 000 so'm"
+            )
+
+        now = datetime.now()
+        end_time = now + timedelta(hours=duration_hours)
+
+        auc_data = {
+            "user_id": user_id,
+            "brand": brand,
+            "model": model,
+            "memory": data.get("memory", "128 GB"),
+            "condition": data.get("condition", "Yaxshi"),
+            "battery": data.get("battery", "—"),
+            "color": data.get("color", "—"),
+            "region": data.get("region", "Toshkent shahri"),
+            "photo_id": photo_id,
+            "receipt_photo_id": receipt_photo_id,
+            "description": data.get("description", ""),
+            "contact_phone": phone,
+            "contact_username": data.get("contact_username", ""),
+            "start_price": start_price,
+            "min_step": min_step,
+            "duration_hours": duration_hours,
+            "end_time": end_time,
+            "status": "pending"
+        }
+
+        auc_id = await db.create_auction(auc_data)
+
+        # Adminga Telegram orqali xabar va chekni yuborish
+        if bot:
+            admin_caption = (
+                f"🔨 <b>YANGI AUKSION SO'ROVI VA TO'LOV CHEKI (Web App)!</b>\n\n"
+                f"🆔 Auksion ID: <b>#{auc_id}</b>\n"
+                f"📱 Telefon: <b>{brand} {model}</b>\n"
+                f"💾 Xotira: <b>{auc_data['memory']}</b> | Holati: <b>{auc_data['condition']}</b>\n"
+                f"💵 Boshlang'ich narx: <b>{start_price:,} so'm</b>\n"
+                f"📈 Minimal qadam: <b>{min_step:,} so'm</b>\n"
+                f"⏱ Davomiyligi: <b>{duration_hours} soat</b>\n"
+                f"📞 Telefon: <code>{phone}</code>\n"
+                f"👤 Foydalanuvchi ID: <code>{user_id}</code>\n"
+                f"💰 Xizmat haqi: <b>5 000 so'm</b>\n\n"
+                f"<i>Chekni tekshirib, auksionni tasdiqlang:</i>"
+            )
+            admin_kb = get_admin_verify_auction_kb(auc_id, duration_hours)
+            for adm_id in config.ADMIN_IDS:
+                try:
+                    if receipt_photo_id and receipt_photo_id != "receipt":
+                        await bot.send_photo(chat_id=adm_id, photo=receipt_photo_id, caption=admin_caption, reply_markup=admin_kb)
+                    else:
+                        await bot.send_message(chat_id=adm_id, text=admin_caption, reply_markup=admin_kb)
+                except Exception as ex:
+                    logger.error(f"Adminga Web App auksion chekini yuborishda xatolik: {ex}")
+
+        return web.json_response({
+            "success": True, 
+            "message": "Auksion so'rovingiz qabul qilindi! Admin to'lovni tekshirib tasdiqlagach auksion boshlanadi.", 
+            "auc_id": auc_id
+        })
+    except Exception as e:
+        logger.error(f"api_post_auction xatosi: {e}")
+        return web.json_response({"success": False, "message": str(e)})
+
 async def api_delete_ad(request):
     """Web App profilidan shaxsiy e'lonni o'chirish"""
     try:
@@ -350,6 +447,7 @@ def setup_webapp_routes(app: web.Application, bot):
     app.router.add_get("/api/photo/{photo_id}", api_get_photo)
     app.router.add_post("/api/bid", api_place_bid)
     app.router.add_post("/api/post_ad", api_post_ad)
+    app.router.add_post("/api/post_auction", api_post_auction)
     app.router.add_get("/api/my_ads", api_get_my_ads)
     app.router.add_post("/api/delete_ad", api_delete_ad)
     app.router.add_post("/api/buy_vip", api_buy_vip)

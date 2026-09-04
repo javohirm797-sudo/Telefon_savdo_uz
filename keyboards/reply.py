@@ -2,15 +2,14 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 import config
 
 def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
-    """Bosh menyu klaviaturasi - faqat Web App va Telefonlar bozori"""
+    """Bosh menyu klaviaturasi - faqat bitta asosiy Web App tugmasi"""
     buttons = [
         [
             KeyboardButton(
                 text="🌐 E'lon bering (Web App)", 
                 web_app=WebAppInfo(url=config.WEBAPP_URL)
             )
-        ],
-        [KeyboardButton(text="🛍 Telefonlar bozori (E'lonlar)")]
+        ]
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 

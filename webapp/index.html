@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="/static/style.css?v=10">
+  <link rel="stylesheet" href="/static/style.css?v=11">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
@@ -108,9 +108,14 @@
 
         <!-- Auction Section -->
         <section id="auctionSection" style="display: none;">
-          <div class="section-header">
-            <span class="count-badge" id="auctionsCount">Faol auksionlar</span>
-            <div class="header-region-selector auction-inner-region">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="count-badge" id="auctionsCount">Faol auksionlar</span>
+            </div>
+            <button type="button" class="btn-post-auction-trigger" onclick="goToPostAuction()" style="background: linear-gradient(135deg, #ff9500, #ff5e3a); color: #fff; border: none; padding: 7px 14px; border-radius: 20px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 3px 10px rgba(255, 94, 58, 0.3);">
+              <i class="fa-solid fa-plus"></i> Auksionga qo'yish
+            </button>
+            <div class="header-region-selector auction-inner-region" style="width: 100%; margin-top: 6px;">
               <i class="fa-solid fa-location-dot region-ico"></i>
               <select id="auctionRegionSelect" onchange="onRegionChange(this.value)">
                 <option value="all">📍 Barcha viloyatlar</option>
@@ -144,10 +149,20 @@
     <!-- VIEW 2: E'LON BERISH (FORM) -->
     <div id="viewPostAd" class="app-view" style="display: none;">
       <header class="simple-header">
-        <h2>➕ Yangi e'lon joylash</h2>
-        <p>Telefoningizni tez va qulay soting</p>
+        <h2 id="postFormTitle">➕ Yangi e'lon joylash</h2>
+        <p id="postFormSub">Telefoningizni tez va qulay soting</p>
       </header>
       <div class="form-container">
+        <!-- Rejim almashtirgich (Oddiy E'lon yoki Auksion) -->
+        <div class="post-type-selector" style="display: flex; gap: 8px; margin-bottom: 16px; background: rgba(0,0,0,0.05); padding: 4px; border-radius: 12px;">
+          <button type="button" class="post-type-btn active" id="btnTypeNormal" onclick="switchPostType('normal')" style="flex: 1; padding: 10px; border: none; border-radius: 9px; font-weight: 700; font-size: 13px; cursor: pointer; transition: 0.2s;">
+            <i class="fa-solid fa-tag"></i> 📱 Oddiy E'lon
+          </button>
+          <button type="button" class="post-type-btn" id="btnTypeAuction" onclick="switchPostType('auction')" style="flex: 1; padding: 10px; border: none; border-radius: 9px; font-weight: 700; font-size: 13px; cursor: pointer; transition: 0.2s; background: transparent; color: var(--hint-color);">
+            <i class="fa-solid fa-gavel"></i> 🔨 Kimoshdi (Auksion)
+          </button>
+        </div>
+
         <div class="form-group">
           <label>Brendni tanlang *</label>
           <select id="postBrand" onchange="onBrandChange()">
@@ -189,7 +204,8 @@
           </div>
         </div>
 
-        <div class="form-row">
+        <!-- Oddiy E'lon Narxi -->
+        <div class="form-row" id="normalPriceRow">
           <div class="form-group">
             <label>Narxi *</label>
             <input type="text" id="postPrice" placeholder="Masalan: 350$ yoki 4 500 000 so'm">
@@ -197,6 +213,76 @@
           <div class="form-group">
             <label>Batareya (Yomkost)</label>
             <input type="text" id="postBattery" placeholder="Masalan: 88% yoki 100%">
+          </div>
+        </div>
+
+        <!-- Auksion Maydonlari (Faqat Auksion tanlanganda chiqadi) -->
+        <div id="auctionFieldsGroup" style="display: none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Boshlang'ich narx (so'mda) *</label>
+              <input type="number" id="postAucStartPrice" placeholder="Masalan: 1500000" min="10000">
+            </div>
+            <div class="form-group">
+              <label>Batareya (Yomkost)</label>
+              <input type="text" id="postAucBattery" placeholder="Masalan: 90%">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Minimal taklif qadami *</label>
+              <select id="postAucMinStep">
+                <option value="50000" selected>+50 000 so'm</option>
+                <option value="100000">+100 000 so'm</option>
+                <option value="200000">+200 000 so'm</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Auksion davomiyligi *</label>
+              <select id="postAucDuration">
+                <option value="6">6 soat</option>
+                <option value="12">12 soat</option>
+                <option value="24" selected>24 soat (1 kun)</option>
+                <option value="48">2 kun</option>
+                <option value="72">3 kun</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Auksion 5 000 so'm to'lov bloki -->
+          <div class="vip-card-box" style="margin: 12px 0 16px; background: rgba(255, 149, 0, 0.08); border: 1px dashed #ff9500; border-radius: 12px; padding: 12px;">
+            <div style="font-weight: 700; color: #ff9500; font-size: 14px; margin-bottom: 6px;">
+              <i class="fa-solid fa-credit-card"></i> Auksion xizmati to'lovi: 5 000 so'm
+            </div>
+            <p style="font-size: 12px; color: var(--hint-color); margin-bottom: 8px;">
+              Telefoningiz kimoshdi savdosiga chiqishi uchun 5 000 so'm to'lov qiling va chek rasmini yuklang:
+            </p>
+            <div class="card-number-row" style="background: rgba(0,0,0,0.05); padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <b style="font-family: monospace; font-size: 15px;">5614-6818-7592-1300</b>
+                <div style="font-size: 11px; opacity: 0.8;">MAVLONOV JAVOHIR</div>
+              </div>
+              <button type="button" class="copy-btn" onclick="copyCardNumber()" style="background: var(--primary-accent); color:#fff; border:none; border-radius:6px; padding:6px 10px; font-size:12px; cursor:pointer;">
+                <i class="fa-regular fa-copy"></i> Nusxa
+              </button>
+            </div>
+
+            <!-- Chek yuklash -->
+            <div style="margin-top: 10px;">
+              <label style="font-size: 12px; font-weight: 700; display: block; margin-bottom: 4px;">🧾 To'lov cheki skrinshotini yuklang *</label>
+              <input type="file" id="postAucReceiptInput" accept="image/*" style="display: none;" onchange="onAucReceiptSelected(event)">
+              <div id="aucReceiptTrigger" onclick="document.getElementById('postAucReceiptInput').click()" style="border: 1px dashed var(--primary-accent); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; background: rgba(0, 122, 255, 0.04);">
+                <i class="fa-solid fa-receipt" style="color: var(--primary-accent); font-size: 18px;"></i>
+                <span style="font-size: 13px; font-weight: 600; display: block; margin-top: 2px;">Chek rasmini tanlang</span>
+              </div>
+              <div id="aucReceiptPreviewWrap" style="display: none; margin-top: 6px; text-align: center;">
+                <img id="aucReceiptPreview" src="" alt="Chek" style="max-height: 120px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1);">
+                <button type="button" onclick="removeAucReceiptPhoto()" style="display: block; margin: 4px auto 0; background: none; border: none; color: #ff3b30; font-size: 12px; cursor: pointer;">
+                  <i class="fa-solid fa-trash"></i> O'chirish va qayta tanlash
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -241,14 +327,14 @@
           <textarea id="postDesc" rows="3" placeholder="Karobka-dokument bormi, holati qanday..."></textarea>
         </div>
 
-        <!-- Rasm yuklash bloki -->
+        <!-- Telefon rasmi yuklash bloki -->
         <div class="form-group">
-          <label>📷 Telefon rasmi</label>
+          <label>📷 Telefon rasmi *</label>
           <input type="file" id="postPhotoInput" accept="image/*" style="display: none;" onchange="onPhotoSelected(event)">
           
           <div id="photoUploadTrigger" class="photo-upload-box" onclick="document.getElementById('postPhotoInput').click()">
             <i class="fa-solid fa-cloud-arrow-up"></i>
-            <span>Galereyadan rasm tanlang</span>
+            <span>Galereyadan telefon rasmini tanlang</span>
             <small>JPG, PNG formatida</small>
           </div>
 
@@ -260,8 +346,14 @@
           </div>
         </div>
 
-        <button class="primary-submit-btn" onclick="submitPostAd()">
+        <!-- Oddiy E'lon tugmasi -->
+        <button type="button" class="primary-submit-btn" id="btnSubmitAd" onclick="submitPostAd()">
           <i class="fa-solid fa-paper-plane"></i> E'lonni chop etish
+        </button>
+
+        <!-- Auksion jo'natish tugmasi -->
+        <button type="button" class="primary-submit-btn" id="btnSubmitAuction" onclick="submitPostAuction()" style="display: none; background: linear-gradient(135deg, #ff9500, #ff5e3a); box-shadow: 0 4px 15px rgba(255, 94, 58, 0.4);">
+          <i class="fa-solid fa-gavel"></i> Auksionni tasdiqlashga yuborish (5 000 so'm)
         </button>
       </div>
     </div>
@@ -517,6 +609,6 @@
     </nav>
   </div>
 
-  <script src="/static/app.js?v=10"></script>
+  <script src="/static/app.js?v=11"></script>
 </body>
 </html>

@@ -40,7 +40,7 @@ async def cmd_start(message: Message, state: FSMContext):
     else:
         await message.answer(
             f"Assalomu alaykum, <b>{user.get('full_name', message.from_user.full_name)}</b>!\n\n"
-            f"Kerakli bo'limni tanlang yoki <b>🌐 E'lon bering (Web App)</b> tugmasini bosing:",
+            f"Bozorga kirish va e'lon berish uchun pastdagi <b>🌐 E'lon bering (Web App)</b> tugmasini bosing:",
             reply_markup=get_main_menu(is_admin=is_admin)
         )
 

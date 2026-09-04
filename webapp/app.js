@@ -663,6 +663,182 @@ async function submitPostAd() {
   }
 }
 
+// ==================== POST TYPE SWITCHER (ODDIY / AUKSION) ====================
+let currentPostType = 'normal';
+let selectedAucReceiptBase64 = null;
+
+function switchPostType(type) {
+  currentPostType = type;
+  const btnNormal = document.getElementById('btnTypeNormal');
+  const btnAuction = document.getElementById('btnTypeAuction');
+  const normalPriceRow = document.getElementById('normalPriceRow');
+  const auctionFieldsGroup = document.getElementById('auctionFieldsGroup');
+  const btnSubmitAd = document.getElementById('btnSubmitAd');
+  const btnSubmitAuction = document.getElementById('btnSubmitAuction');
+  const formTitle = document.getElementById('postFormTitle');
+  const formSub = document.getElementById('postFormSub');
+
+  if (type === 'auction') {
+    if (btnNormal) {
+      btnNormal.style.background = 'transparent';
+      btnNormal.style.color = 'var(--hint-color)';
+    }
+    if (btnAuction) {
+      btnAuction.style.background = 'linear-gradient(135deg, #ff9500, #ff5e3a)';
+      btnAuction.style.color = '#fff';
+    }
+    if (normalPriceRow) normalPriceRow.style.display = 'none';
+    if (auctionFieldsGroup) auctionFieldsGroup.style.display = 'block';
+    if (btnSubmitAd) btnSubmitAd.style.display = 'none';
+    if (btnSubmitAuction) btnSubmitAuction.style.display = 'block';
+    if (formTitle) formTitle.innerHTML = '<i class="fa-solid fa-gavel"></i> Auksionga telefon qo\'yish';
+    if (formSub) formSub.textContent = 'Eng yuqori narxda sotish uchun auksion e\'loni bering';
+  } else {
+    if (btnNormal) {
+      btnNormal.style.background = 'var(--primary-accent)';
+      btnNormal.style.color = '#fff';
+    }
+    if (btnAuction) {
+      btnAuction.style.background = 'transparent';
+      btnAuction.style.color = 'var(--hint-color)';
+    }
+    if (normalPriceRow) normalPriceRow.style.display = 'flex';
+    if (auctionFieldsGroup) auctionFieldsGroup.style.display = 'none';
+    if (btnSubmitAd) btnSubmitAd.style.display = 'block';
+    if (btnSubmitAuction) btnSubmitAuction.style.display = 'none';
+    if (formTitle) formTitle.textContent = '➕ Yangi e\'lon joylash';
+    if (formSub) formSub.textContent = 'Telefoningizni tez va qulay soting';
+  }
+}
+
+function goToPostAuction() {
+  switchBottomNav('post');
+  switchPostType('auction');
+}
+
+function onAucReceiptSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  compressImage(file, function(base64) {
+    selectedAucReceiptBase64 = base64;
+    const preview = document.getElementById('aucReceiptPreview');
+    const wrap = document.getElementById('aucReceiptPreviewWrap');
+    const trigger = document.getElementById('aucReceiptTrigger');
+    if (preview) preview.src = base64;
+    if (wrap) wrap.style.display = 'block';
+    if (trigger) trigger.style.display = 'none';
+  });
+}
+
+function removeAucReceiptPhoto() {
+  selectedAucReceiptBase64 = null;
+  const input = document.getElementById('postAucReceiptInput');
+  if (input) input.value = '';
+  const wrap = document.getElementById('aucReceiptPreviewWrap');
+  const trigger = document.getElementById('aucReceiptTrigger');
+  if (wrap) wrap.style.display = 'none';
+  if (trigger) trigger.style.display = 'block';
+}
+
+async function submitPostAuction() {
+  if (isPostSubmitting) return;
+
+  const brand = document.getElementById('postBrand').value;
+  const model = document.getElementById('postModel').value.trim();
+  const memory = document.getElementById('postMemory').value;
+  const condition = document.getElementById('postCondition').value;
+  const battery = (document.getElementById('postAucBattery') ? document.getElementById('postAucBattery').value.trim() : '') || '—';
+  const color = document.getElementById('postColor').value.trim() || '—';
+  const region = document.getElementById('postRegion').value;
+  const phone = document.getElementById('postPhone').value.trim();
+  const username = document.getElementById('postUsername').value.trim();
+  const desc = document.getElementById('postDesc').value.trim();
+
+  const startPrice = parseInt(document.getElementById('postAucStartPrice').value) || 0;
+  const minStep = parseInt(document.getElementById('postAucMinStep').value) || 50000;
+  const duration = parseInt(document.getElementById('postAucDuration').value) || 24;
+
+  if (!model) {
+    alert('Iltimos, telefon modelini kiriting!');
+    return;
+  }
+  if (!startPrice || startPrice < 10000) {
+    alert('Iltimos, to\'g\'ri boshlang\'ich narx kiriting (kamida 10 000 so\'m)!');
+    return;
+  }
+  if (!phone) {
+    alert('Iltimos, telefon raqamingizni kiriting!');
+    return;
+  }
+  if (!selectedPhotoBase64) {
+    alert('Iltimos, telefoningiz rasmini yuklang!');
+    return;
+  }
+  if (!selectedAucReceiptBase64) {
+    alert('Iltimos, 5 000 so\'m auksion to\'lovi chekining skrinshotini yuklang!');
+    return;
+  }
+
+  const submitBtn = document.getElementById('btnSubmitAuction');
+  const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Auksion yuborilmoqda...';
+  }
+  isPostSubmitting = true;
+
+  const payload = {
+    user_id: currentUser.id,
+    brand: brand,
+    model: model,
+    memory: memory,
+    condition: condition,
+    battery: battery,
+    color: color,
+    region: region,
+    contact_phone: phone,
+    contact_username: username,
+    description: desc,
+    start_price: startPrice,
+    min_step: minStep,
+    duration_hours: duration,
+    photo_base64: selectedPhotoBase64,
+    receipt_base64: selectedAucReceiptBase64
+  };
+
+  try {
+    const res = await fetch('/api/post_auction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.success) {
+      alert('🎉 Auksion so\'rovingiz muvaffaqiyatli qabul qilindi!\n\nAdmin to\'lov chekini tekshirib tasdiqlashi bilan auksion boshlanadi va sizga xabar beriladi.');
+      // Tozalash
+      document.getElementById('postModel').value = '';
+      document.getElementById('postDesc').value = '';
+      if (document.getElementById('postAucStartPrice')) document.getElementById('postAucStartPrice').value = '';
+      removeSelectedPhoto();
+      removeAucReceiptPhoto();
+      switchPostType('normal');
+      switchBottomNav('home');
+      switchMainTab('auctions');
+      loadAuctions();
+    } else {
+      alert('❌ Xatolik: ' + result.message);
+    }
+  } catch (e) {
+    alert('Tarmoq xatosi yuz berdi!');
+  } finally {
+    isPostSubmitting = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnHtml;
+    }
+  }
+}
+
 // ==================== PROFIL: MENING E'LONLARIM ====================
 
 async function loadMyAds() {

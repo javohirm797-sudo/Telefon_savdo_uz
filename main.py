@@ -69,8 +69,7 @@ class CertifiAiohttpSession(AiohttpSession):
 async def set_bot_commands(bot: Bot):
     """Bot menyusidagi buyruqlar"""
     commands = [
-        BotCommand(command="start", description="🔄 Botni qayta ishga tushirish"),
-        BotCommand(command="market", description="🛍 Telefonlar bozori (E'lonlar)")
+        BotCommand(command="start", description="🔄 Botni qayta ishga tushirish")
     ]
     await bot.set_my_commands(commands)
 
